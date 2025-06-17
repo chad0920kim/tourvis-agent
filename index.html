@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>투어비스 에이전트9</title>
+  <title>투어비스 에이전트10</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
   <style>
     body {
@@ -55,6 +55,15 @@
       align-self: flex-start;
       min-height: 20px;
       transition: all 0.1s ease-out;
+    }
+    .bot.typo-processing {
+      background: #fff3cd;
+      border-color: #ffeaa7;
+    }
+    .bot.error {
+      background: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
     }
     .timestamp {
       font-size: 0.7em;
@@ -124,6 +133,15 @@
         opacity: 1;
       }
     }
+    .typo-notice {
+      background: #e7f3ff;
+      border: 1px solid #b3d9ff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin: 5px 0;
+      font-size: 0.9em;
+      color: #0056b3;
+    }
   </style>
 </head>
 <body>
@@ -139,6 +157,7 @@
     const chat = document.getElementById("chat");
     const input = document.getElementById("q");
     const sendBtn = document.getElementById("sendBtn");
+    let currentBotContent = null;
 
     function addMsg(role, text, timestamp) {
       const wrap = document.createElement("div");
@@ -171,6 +190,18 @@
       return `<div class="typing-indicator">답변 생성 중<span>.</span><span>.</span><span>.</span></div>`;
     }
 
+    function createTypoProcessingIndicator() {
+      return `<div class="typing-indicator">🔍 오타를 확인하고 있습니다<span>.</span><span>.</span><span>.</span></div>`;
+    }
+
+    function resetUI() {
+      input.disabled = false;
+      sendBtn.disabled = false;
+      sendBtn.textContent = "전송";
+      input.focus();
+      currentBotContent = null;
+    }
+
     async function send() {
       const message = input.value.trim();
       if (!message) return;
@@ -189,6 +220,7 @@
       const botContent = document.createElement("div");
       botContent.className = "bot";
       botContent.innerHTML = createTypingIndicator();
+      currentBotContent = botContent;
       
       const timestamp = document.createElement("div");
       timestamp.className = "timestamp";
@@ -212,6 +244,7 @@
         const decoder = new TextDecoder("utf-8");
         let fullText = "";
         let isFirstChunk = true;
+        let typoNoticeShown = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -223,20 +256,53 @@
           for (const line of lines) {
             const jsonStr = line.replace(/^data:\s*/, "").trim();
             if (jsonStr === "[DONE]") {
-              // 전송 버튼 다시 활성화
-              input.disabled = false;
-              sendBtn.disabled = false;
-              sendBtn.textContent = "전송";
-              input.focus();
+              resetUI();
               return;
             }
 
             try {
               const parsed = JSON.parse(jsonStr);
+              
+              // 🔧 추가: 특수 상태 처리
+              if (parsed.status) {
+                switch (parsed.status) {
+                  case 'typo_correction':
+                    if (!typoNoticeShown) {
+                      botContent.className = "bot typo-processing";
+                      botContent.innerHTML = createTypoProcessingIndicator();
+                      
+                      // 오타 안내 메시지 추가
+                      const typoNotice = document.createElement("div");
+                      typoNotice.className = "typo-notice";
+                      typoNotice.innerHTML = `💡 입력하신 "<strong>${parsed.original}</strong>"을 "<strong>${parsed.corrected}</strong>"로 이해했습니다.`;
+                      botWrap.insertBefore(typoNotice, timestamp);
+                      typoNoticeShown = true;
+                      
+                      chat.scrollTop = chat.scrollHeight;
+                    }
+                    break;
+                    
+                  case 'timeout':
+                    botContent.className = "bot error";
+                    botContent.innerHTML = "⏰ 처리 시간이 초과되었습니다. 질문을 더 정확하게 입력해 주세요.";
+                    resetUI();
+                    return;
+                    
+                  case 'error':
+                    botContent.className = "bot error";
+                    botContent.innerHTML = `⚠️ 오류가 발생했습니다: ${parsed.message}`;
+                    resetUI();
+                    return;
+                }
+                continue;
+              }
+              
+              // 일반 텍스트 응답 처리
               const delta = parsed?.choices?.[0]?.delta?.content;
               if (delta) {
                 if (isFirstChunk) {
                   // 첫 번째 실제 내용이 오면 타이핑 인디케이터 제거
+                  botContent.className = "bot";  // 클래스 초기화
                   fullText = "";
                   isFirstChunk = false;
                 }
@@ -255,12 +321,11 @@
         }
       } catch (error) {
         console.error("요청 실패:", error);
-        botContent.innerHTML = "⚠️ 오류가 발생했습니다. 다시 시도해주세요.";
-        
-        // 전송 버튼 다시 활성화
-        input.disabled = false;
-        sendBtn.disabled = false;
-        sendBtn.textContent = "전송";
+        if (currentBotContent) {
+          currentBotContent.className = "bot error";
+          currentBotContent.innerHTML = "⚠️ 네트워크 오류가 발생했습니다. 다시 시도해주세요.";
+        }
+        resetUI();
       }
     }
 
