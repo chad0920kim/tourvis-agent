@@ -2,17 +2,29 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>투어비스 에이전트2</title>
-  <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
+  <title>투어비스 에이전트3</title>
   <style>
     body { font-family: sans-serif; background: #f9f9f9; padding: 20px; }
     #chat { max-width: 800px; margin: auto; }
     .msg { margin: 10px 0; }
-    .user, .bot { padding: 10px 14px; border-radius: 6px; display: inline-block; max-width: 100%; white-space: pre-wrap; }
+    .user, .bot {
+      padding: 10px 14px;
+      border-radius: 6px;
+      display: inline-block;
+      max-width: 100%;
+      white-space: pre-wrap;
+    }
     .user { background: #d1e9ff; font-weight: bold; }
     .bot { background: #eee; }
     .timestamp { font-size: 0.8em; color: #666; margin-left: 8px; }
-    #resp { border: 1px solid #ccc; padding: 15px; border-radius: 6px; background: #fff; max-height: 500px; overflow-y: auto; }
+    #resp {
+      border: 1px solid #ccc;
+      padding: 15px;
+      border-radius: 6px;
+      background: #fff;
+      max-height: 500px;
+      overflow-y: auto;
+    }
     input[type="text"] { width: 70%; padding: 8px; }
     button { padding: 8px 16px; }
   </style>
@@ -49,7 +61,7 @@
       respBox.scrollTop = respBox.scrollHeight;
     }
 
-    function send() {
+    async function send() {
       const chat_id = "user1";
       const input = document.getElementById("q");
       const message = input.value.trim();
@@ -68,42 +80,41 @@
       botBox.appendChild(botContent);
       respBox.appendChild(botBox);
 
-      const es = new EventSourcePolyfill("https://tourvis-agent-mibqa.run.goorm.site/chat", {
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-        body: JSON.stringify({ chat_id, message }),
-      });
+      try {
+        const response = await fetch("https://tourvis-agent-mibqa.run.goorm.site/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id, message })
+        });
 
-      let fullText = "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let fullText = "";
 
-      es.onmessage = e => {
-        if (e.data === "[DONE]") {
-          es.close();
-          botContent.textContent = fullText;
-          input.disabled = false;
-          btn.disabled = false;
-          input.focus();
-        } else {
-          try {
-            const chunk = JSON.parse(e.data).choices[0].delta.content;
-            if (chunk) {
-              fullText += chunk;
-              botContent.textContent = fullText;
-              respBox.scrollTop = respBox.scrollHeight;
-            }
-          } catch (err) {
-            console.warn("JSON 파싱 실패", err);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const matches = [...chunk.matchAll(/"content":"(.*?)"/g)];
+          for (const m of matches) {
+            const text = m[1]
+              .replace(/\\"/g, '"')
+              .replace(/\\n/g, "\n")
+              .replace(/\\\\/g, "\\");
+            fullText += text;
+            botContent.textContent = fullText;
+            respBox.scrollTop = respBox.scrollHeight;
           }
         }
-      };
-
-      es.onerror = err => {
+      } catch (err) {
         botContent.textContent = "⚠️ 오류 발생";
-        console.error("SSE Error", err);
-        es.close();
-        input.disabled = false;
-        btn.disabled = false;
-      };
+        console.error("오류:", err);
+      }
+
+      input.disabled = false;
+      btn.disabled = false;
+      input.focus();
     }
   </script>
 </body>
