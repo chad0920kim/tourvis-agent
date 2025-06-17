@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>투어비스 에이전트 테스트</title>
+  <meta charset="UTF-8" />
+  <title>투어비스 에이전트</title>
+  <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
   <style>
-    body { font-family: 'Noto Sans KR', sans-serif; padding: 20px; background: #f9f9f9; }
+    body { font-family: sans-serif; background: #f9f9f9; padding: 20px; }
     #chat { max-width: 800px; margin: auto; }
-    .msg { margin: 12px 0; }
-    .user, .bot { white-space: pre-wrap; padding: 10px 14px; border-radius: 6px; display: inline-block; max-width: 100%; }
-    .user { background: #d1e9ff; color: #003366; font-weight: bold; }
-    .bot { background: #eaeaea; color: #222; }
-    .timestamp { font-size: 0.8em; color: #888; margin-left: 6px; }
-    #resp { max-height: 500px; overflow-y: auto; border: 1px solid #ccc; padding: 15px; border-radius: 8px; background: #fff; }
-    input[type="text"] { width: 70%; padding: 8px; font-size: 16px; }
-    button { padding: 8px 16px; font-size: 16px; }
+    .msg { margin: 10px 0; }
+    .user, .bot { padding: 10px 14px; border-radius: 6px; display: inline-block; max-width: 100%; white-space: pre-wrap; }
+    .user { background: #d1e9ff; font-weight: bold; }
+    .bot { background: #eee; }
+    .timestamp { font-size: 0.8em; color: #666; margin-left: 8px; }
+    #resp { border: 1px solid #ccc; padding: 15px; border-radius: 6px; background: #fff; max-height: 500px; overflow-y: auto; }
+    input[type="text"] { width: 70%; padding: 8px; }
+    button { padding: 8px 16px; }
   </style>
 </head>
 <body>
@@ -27,101 +28,82 @@
   </div>
 
   <script>
-    const respEl = document.getElementById("resp");
-    const btnEl = document.getElementById("btn");
+    const respBox = document.getElementById("resp");
+    const btn = document.getElementById("btn");
 
-    // 대화기록 복원
-    window.onload = () => {
-      const history = JSON.parse(localStorage.getItem("chat_history") || "[]");
-      for (const item of history) {
-        addMessage(item.role, item.content, item.time);
-      }
-    };
+    function addMsg(role, text, timeStr) {
+      const wrap = document.createElement("div");
+      wrap.className = "msg";
 
-    function addMessage(role, text, timeStr) {
-      const msgDiv = document.createElement("div");
-      msgDiv.className = "msg";
-
-      const inner = document.createElement("div");
-      inner.className = role === "user" ? "user" : "bot";
-      inner.textContent = text;
+      const box = document.createElement("div");
+      box.className = role === "user" ? "user" : "bot";
+      box.textContent = text;
 
       const time = document.createElement("span");
       time.className = "timestamp";
       time.textContent = timeStr || new Date().toLocaleString();
 
-      msgDiv.appendChild(inner);
-      msgDiv.appendChild(time);
-      respEl.appendChild(msgDiv);
-      respEl.scrollTop = respEl.scrollHeight;
+      wrap.appendChild(box);
+      wrap.appendChild(time);
+      respBox.appendChild(wrap);
+      respBox.scrollTop = respBox.scrollHeight;
     }
 
-    async function send() {
+    function send() {
       const chat_id = "user1";
-      const inputEl = document.getElementById("q");
-      const message = inputEl.value.trim();
+      const input = document.getElementById("q");
+      const message = input.value.trim();
       if (!message) return;
 
-      const timestamp = new Date().toLocaleString();
-      addMessage("user", message, timestamp);
-      saveHistory({ role: "user", content: message, time: timestamp });
+      addMsg("user", message, new Date().toLocaleString());
+      input.value = "";
+      input.disabled = true;
+      btn.disabled = true;
 
-      inputEl.value = "";
-      inputEl.disabled = true;
-      btnEl.disabled = true;
+      const botBox = document.createElement("div");
+      botBox.className = "msg";
+      const botContent = document.createElement("div");
+      botContent.className = "bot";
+      botContent.textContent = "⏳ 답변 생성 중...";
+      botBox.appendChild(botContent);
+      respBox.appendChild(botBox);
 
-      // 로딩 메시지
-      const loadingMsg = document.createElement("div");
-      loadingMsg.className = "msg";
-      const botDiv = document.createElement("div");
-      botDiv.className = "bot";
-      botDiv.textContent = "⏳ 답변 생성 중...";
-      loadingMsg.appendChild(botDiv);
-      respEl.appendChild(loadingMsg);
-      respEl.scrollTop = respEl.scrollHeight;
+      const es = new EventSourcePolyfill("https://tourvis-agent-mibqa.run.goorm.site/chat", {
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        body: JSON.stringify({ chat_id, message }),
+      });
 
-      try {
-        const response = await fetch("https://tourvis-agent-mibqa.run.goorm.site/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id, message })
-        });
+      let fullText = "";
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let content = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const matches = [...chunk.matchAll(/"content":"(.*?)"/g)];
-          for (const m of matches) {
-            const text = m[1]
-              .replace(/\\"/g, '"')
-              .replace(/\\n/g, "\n")
-              .replace(/\\\\/g, "\\");
-            content += text;
-            botDiv.textContent = content;
-            respEl.scrollTop = respEl.scrollHeight;
+      es.onmessage = e => {
+        if (e.data === "[DONE]") {
+          es.close();
+          botContent.textContent = fullText;
+          input.disabled = false;
+          btn.disabled = false;
+          input.focus();
+        } else {
+          try {
+            const chunk = JSON.parse(e.data).choices[0].delta.content;
+            if (chunk) {
+              fullText += chunk;
+              botContent.textContent = fullText;
+              respBox.scrollTop = respBox.scrollHeight;
+            }
+          } catch (err) {
+            console.warn("JSON 파싱 실패", err);
           }
         }
+      };
 
-        saveHistory({ role: "bot", content, time: new Date().toLocaleString() });
-      } catch (err) {
-        botDiv.textContent = "⚠️ 오류 발생: " + err.message;
-      }
-
-      inputEl.disabled = false;
-      btnEl.disabled = false;
-      inputEl.focus();
-    }
-
-    function saveHistory(item) {
-      const history = JSON.parse(localStorage.getItem("chat_history") || "[]");
-      history.push(item);
-      localStorage.setItem("chat_history", JSON.stringify(history));
+      es.onerror = err => {
+        botContent.textContent = "⚠️ 오류 발생";
+        console.error("SSE Error", err);
+        es.close();
+        input.disabled = false;
+        btn.disabled = false;
+      };
     }
   </script>
 </body>
