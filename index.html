@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>투어비스 에이전트13</title>
+  <title>투어비스 에이전트14</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
   <style>
     * {
@@ -171,6 +171,9 @@
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       user-select: none;
+      pointer-events: auto;
+      position: relative;
+      z-index: 10;
     }
     
     #sendBtn:hover:not(:disabled) {
@@ -456,21 +459,14 @@
       this.style.height = Math.min(this.scrollHeight, 100) + 'px';
     });
 
-    // 🎯 Enter 키 처리 (모바일에서는 Shift+Enter로 줄바꿈)
+    // 🎯 Enter 키 처리
     input.addEventListener('keydown', function(e) {
+      console.log('⌨️ 키 입력:', e.key, 'Shift:', e.shiftKey);
       if (e.key === 'Enter') {
-        if (isMobile) {
-          // 모바일: Enter로 전송, Shift+Enter로 줄바꿈
-          if (!e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-          }
-        } else {
-          // PC: Enter로 전송, Shift+Enter로 줄바꿈
-          if (!e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-          }
+        if (!e.shiftKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleSend();
         }
       }
     });
@@ -525,22 +521,39 @@
       }, 100);
     }
 
-    // 🎯 전송 버튼 이벤트 (터치와 클릭 모두 지원)
-    sendBtn.addEventListener('click', handleSend);
+    // 🎯 전송 버튼 이벤트 (모든 플랫폼 지원)
+    sendBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSend();
+    });
+    
     sendBtn.addEventListener('touchend', function(e) {
       e.preventDefault();
+      e.stopPropagation();
       handleSend();
     });
 
+    // 마우스 이벤트도 추가 (PC 호환성)
+    sendBtn.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+    });
+
     function handleSend() {
-      if (!sendBtn.disabled) {
+      console.log('🎯 handleSend 호출됨, 버튼 상태:', sendBtn.disabled);
+      if (!sendBtn.disabled && !input.disabled) {
         send();
       }
     }
 
     async function send() {
       const message = input.value.trim();
-      if (!message) return;
+      console.log('📤 send() 함수 호출됨, 메시지:', message);
+      
+      if (!message) {
+        console.log('❌ 빈 메시지, 전송 중단');
+        return;
+      }
 
       console.log('📤 전송 시작:', message); // 디버깅용
 
@@ -548,6 +561,8 @@
       input.disabled = true;
       sendBtn.disabled = true;
       sendIcon.textContent = "⏳";
+      
+      console.log('🔒 UI 비활성화 완료');
 
       addMsg("user", message);
       input.value = "";
@@ -636,7 +651,7 @@
                     
                   case 'timeout':
                     botContent.className = "bot error";
-                    botContent.innerHTML = "⏰ 처리 시간 초과 (10초)<br>질문을 더 정확하게 입력해 주세요.";
+                    botContent.innerHTML = "⏰ 처리 시간이 초과되었습니다.<br>질문을 더 정확하게 입력해 주세요.";
                     resetUI();
                     return;
                     
@@ -681,10 +696,15 @@
       }
     }
 
-    // 🎯 초기화
+    // 🎯 초기화 및 디버깅
+    console.log('🖥️ 플랫폼 감지:', isMobile ? 'Mobile' : 'Desktop');
+    console.log('🎯 전송 버튼 요소:', sendBtn);
+    console.log('📝 입력 필드 요소:', input);
+    
     setTimeout(() => {
       if (!isMobile) {
         input.focus();
+        console.log('🎯 입력 필드에 포커스 설정');
       }
     }, 500);
     
