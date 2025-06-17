@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>투어비스 에이전트6</title>
+  <title>투어비스 에이전트7</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
   <style>
     body {
@@ -13,13 +13,22 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+      align-items: center;
+    }
+    #container {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 95vh; /* 🔼 기존 100vh에서 입력창이 살짝 올라오도록 조정 */
+      width: 100%;
+      max-width: 600px;
     }
     #chat {
       flex: 1;
       padding: 20px;
       overflow-y: auto;
       display: flex;
-      flex-direction: column-reverse; /* 하단 입력 후 위로 채팅 정렬 */
+      flex-direction: column-reverse;
     }
     .msg {
       margin: 8px 0;
@@ -29,7 +38,7 @@
     .user, .bot {
       padding: 10px 14px;
       border-radius: 8px;
-      max-width: 80%;
+      max-width: 100%;
       white-space: pre-wrap;
     }
     .user {
@@ -76,12 +85,13 @@
   </style>
 </head>
 <body>
+  <div id="container">
+    <div id="chat"></div>
 
-  <div id="chat"></div>
-
-  <div id="inputBox">
-    <input id="q" type="text" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter') send()" />
-    <button onclick="send()">전송</button>
+    <div id="inputBox">
+      <input id="q" type="text" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter') send()" />
+      <button onclick="send()">전송</button>
+    </div>
   </div>
 
   <script>
@@ -165,6 +175,5 @@
       }
     }
   </script>
-
 </body>
 </html>
