@@ -2,17 +2,19 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>투어비스 에이전트4</title>
+  <title>투어비스 에이전트</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
   <style>
     body {
       font-family: "Segoe UI", sans-serif;
       background: #f9f9f9;
-      padding: 20px;
+      margin: 0;
+      padding-bottom: 80px; /* 입력창 높이 확보 */
     }
     #chat {
       max-width: 800px;
       margin: auto;
+      padding: 20px;
     }
     .msg {
       margin: 10px 0;
@@ -41,8 +43,20 @@
       padding: 15px;
       border-radius: 6px;
       background: #fff;
-      max-height: 500px;
+      max-height: 80vh;
       overflow-y: auto;
+    }
+    #inputArea {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-top: 1px solid #ccc;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
     }
     input[type="text"] {
       width: 70%;
@@ -53,21 +67,31 @@
       padding: 8px 16px;
       font-size: 16px;
     }
+    a {
+      color: blue;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
   <div id="chat">
-    <h3>질문:</h3>
-    <input id="q" type="text" placeholder="예: 서울 호텔 추천해줘" onkeydown="if(event.key==='Enter') send()" />
-    <button id="btn" onclick="send()">전송</button>
-
     <h3>응답:</h3>
     <div id="resp"></div>
+  </div>
+
+  <div id="inputArea">
+    <input id="q" type="text" placeholder="예: 서울 호텔 추천해줘" onkeydown="if(event.key==='Enter') send()" />
+    <button id="btn" onclick="send()">전송</button>
   </div>
 
   <script>
     const respBox = document.getElementById("resp");
     const btn = document.getElementById("btn");
+
+    function convertLinks(text) {
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      return text.replace(urlRegex, url => `<a href="${url}" target="_blank">${url}</a>`);
+    }
 
     function addMsg(role, text, timeStr) {
       const wrap = document.createElement("div");
@@ -75,7 +99,7 @@
 
       const box = document.createElement("div");
       box.className = role === "user" ? "user" : "bot";
-      box.textContent = text;
+      box.innerHTML = convertLinks(text);  // ✅ 링크 처리
 
       const time = document.createElement("span");
       time.className = "timestamp";
@@ -125,7 +149,7 @@
         for (const line of lines) {
           const jsonStr = line.replace(/^data:\s*/, "").trim();
           if (jsonStr === "[DONE]") {
-            botContent.textContent = fullText || "⚠️ 빈 응답";
+            botContent.innerHTML = convertLinks(fullText || "⚠️ 빈 응답");
             input.disabled = false;
             btn.disabled = false;
             input.focus();
@@ -137,7 +161,7 @@
             const delta = parsed?.choices?.[0]?.delta?.content;
             if (delta) {
               fullText += delta;
-              botContent.textContent = fullText;
+              botContent.innerHTML = convertLinks(fullText);
               respBox.scrollTop = respBox.scrollHeight;
             }
           } catch (err) {
