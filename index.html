@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>투어비스 에이전트 테스트</title>
+</head>
+<body>
+  <h3>질문:</h3>
+  <input id="q" style="width:300px" placeholder="예: 서울 호텔 추천해줘" />
+  <button onclick="send()">전송</button>
+
+  <h3>응답:</h3>
+  <pre id="resp"></pre>
+
+  <script>
+    function send() {
+      const chat_id = "user1"
+      const message = document.getElementById("q").value
+      const es = new EventSourcePolyfill("https://tourvis-agent-mibqa.run.goorm.site/chat", {
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+        body: JSON.stringify({ chat_id, message }),
+      });
+
+      es.onmessage = e => {
+        if (e.data === "[DONE]") {
+          es.close();
+        } else {
+          const chunk = JSON.parse(e.data).choices[0].delta.content;
+          document.getElementById("resp").textContent += chunk;
+        }
+      };
+    }
+  </script>
+  <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
+</body>
+</html>
