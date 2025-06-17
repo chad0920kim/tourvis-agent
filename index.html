@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>투어비스 에이전트8</title>
+  <title>투어비스 에이전트9</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
   <style>
     body {
@@ -28,19 +28,22 @@
       padding: 20px;
       overflow-y: auto;
       display: flex;
-      flex-direction: column-reverse;
+      flex-direction: column;
+      scroll-behavior: smooth;
     }
     .msg {
       margin: 8px 0;
       display: flex;
       flex-direction: column;
-      animation: fadeIn 0.3s ease-in;
+      opacity: 0;
+      animation: slideIn 0.4s ease-out forwards;
     }
     .user, .bot {
       padding: 10px 14px;
       border-radius: 8px;
       max-width: 100%;
       white-space: pre-wrap;
+      word-wrap: break-word;
     }
     .user {
       background: #d1e9ff;
@@ -50,6 +53,8 @@
       background: #fff;
       border: 1px solid #ccc;
       align-self: flex-start;
+      min-height: 20px;
+      transition: all 0.1s ease-out;
     }
     .timestamp {
       font-size: 0.7em;
@@ -79,13 +84,45 @@
       border-radius: 6px;
       cursor: pointer;
     }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
     a {
       color: #0645ad;
       text-decoration: underline;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
+    @keyframes slideIn {
+      from { 
+        opacity: 0; 
+        transform: translateY(10px); 
+      }
+      to { 
+        opacity: 1; 
+        transform: translateY(0); 
+      }
+    }
+    .typing-indicator {
+      display: inline-block;
+    }
+    .typing-indicator span {
+      display: inline-block;
+      animation: typing 1.4s infinite;
+      margin: 0 1px;
+    }
+    .typing-indicator span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .typing-indicator span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+    @keyframes typing {
+      0%, 60%, 100% {
+        opacity: 0.3;
+      }
+      30% {
+        opacity: 1;
+      }
     }
   </style>
 </head>
@@ -94,13 +131,14 @@
     <div id="chat"></div>
     <div id="inputBox">
       <input id="q" type="text" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter') send()" />
-      <button onclick="send()">전송</button>
+      <button id="sendBtn" onclick="send()">전송</button>
     </div>
   </div>
 
   <script>
     const chat = document.getElementById("chat");
     const input = document.getElementById("q");
+    const sendBtn = document.getElementById("sendBtn");
 
     function addMsg(role, text, timestamp) {
       const wrap = document.createElement("div");
@@ -116,7 +154,12 @@
 
       wrap.appendChild(content);
       wrap.appendChild(time);
-      chat.prepend(wrap);
+      chat.appendChild(wrap);
+      
+      // 부드럽게 스크롤을 맨 아래로
+      setTimeout(() => {
+        chat.scrollTop = chat.scrollHeight;
+      }, 50);
     }
 
     function convertLinks(text) {
@@ -124,70 +167,105 @@
       return text.replace(urlRegex, url => `<a href="${url}" target="_blank">${url}</a>`);
     }
 
-    function loadingDots(el) {
-      let count = 0;
-      return setInterval(() => {
-        count = (count + 1) % 4;
-        el.textContent = "⏳ 답변 생성 중" + ".".repeat(count);
-      }, 500);
+    function createTypingIndicator() {
+      return `<div class="typing-indicator">답변 생성 중<span>.</span><span>.</span><span>.</span></div>`;
     }
 
     async function send() {
       const message = input.value.trim();
       if (!message) return;
 
+      // 전송 버튼 비활성화
+      input.disabled = true;
+      sendBtn.disabled = true;
+      sendBtn.textContent = "전송중...";
+
       addMsg("user", message);
       input.value = "";
-      input.disabled = true;
 
+      // 봇 메시지 컨테이너 생성
       const botWrap = document.createElement("div");
       botWrap.className = "msg";
       const botContent = document.createElement("div");
       botContent.className = "bot";
+      botContent.innerHTML = createTypingIndicator();
+      
+      const timestamp = document.createElement("div");
+      timestamp.className = "timestamp";
+      timestamp.textContent = new Date().toLocaleTimeString();
+      
       botWrap.appendChild(botContent);
-      chat.prepend(botWrap);
+      botWrap.appendChild(timestamp);
+      chat.appendChild(botWrap);
+      
+      // 스크롤을 맨 아래로
+      chat.scrollTop = chat.scrollHeight;
 
-      const dots = loadingDots(botContent);
+      try {
+        const response = await fetch("https://tourvis-agent-mibqa.run.goorm.site/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: "user1", message })
+        });
 
-      const response = await fetch("https://tourvis-agent-mibqa.run.goorm.site/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: "user1", message })
-      });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let fullText = "";
+        let isFirstChunk = true;
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let fullText = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n").filter(line => line.startsWith("data:"));
-        for (const line of lines) {
-          const jsonStr = line.replace(/^data:\s*/, "").trim();
-          if (jsonStr === "[DONE]") {
-            clearInterval(dots);
-            botContent.innerHTML = convertLinks(fullText || "⚠️ 빈 응답");
-            input.disabled = false;
-            input.focus();
-            return;
-          }
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed?.choices?.[0]?.delta?.content;
-            if (delta) {
-              fullText += delta;
-              botContent.innerHTML = convertLinks(fullText);
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n").filter(line => line.startsWith("data:"));
+          
+          for (const line of lines) {
+            const jsonStr = line.replace(/^data:\s*/, "").trim();
+            if (jsonStr === "[DONE]") {
+              // 전송 버튼 다시 활성화
+              input.disabled = false;
+              sendBtn.disabled = false;
+              sendBtn.textContent = "전송";
+              input.focus();
+              return;
             }
-          } catch (err) {
-            console.warn("응답 파싱 실패", err, jsonStr);
+
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const delta = parsed?.choices?.[0]?.delta?.content;
+              if (delta) {
+                if (isFirstChunk) {
+                  // 첫 번째 실제 내용이 오면 타이핑 인디케이터 제거
+                  fullText = "";
+                  isFirstChunk = false;
+                }
+                fullText += delta;
+                botContent.innerHTML = convertLinks(fullText);
+                
+                // 새 내용이 추가될 때마다 부드럽게 스크롤
+                if (chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 100) {
+                  chat.scrollTop = chat.scrollHeight;
+                }
+              }
+            } catch (err) {
+              console.warn("응답 파싱 실패", err, jsonStr);
+            }
           }
         }
+      } catch (error) {
+        console.error("요청 실패:", error);
+        botContent.innerHTML = "⚠️ 오류가 발생했습니다. 다시 시도해주세요.";
+        
+        // 전송 버튼 다시 활성화
+        input.disabled = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = "전송";
       }
     }
+
+    // 초기 포커스
+    input.focus();
   </script>
 </body>
 </html>
