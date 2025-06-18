@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>투어비스 에이전트2-1</title>
+  <title>투어비스 에이전트14</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
   <style>
     * {
@@ -17,12 +17,11 @@
       padding: 0;
       display: flex;
       flex-direction: column;
-      height: 100vh;
       align-items: center;
+      height: 100vh;
       overscroll-behavior: none;
     }
 
-    /* 🎯 헤더 추가 */
     #header {
       width: 100%;
       max-width: 600px;
@@ -30,10 +29,10 @@
       color: white;
       padding: 15px 20px;
       text-align: center;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       position: sticky;
       top: 0;
       z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
 
     #header h1 {
@@ -42,17 +41,102 @@
       font-weight: 600;
     }
 
-    #container {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      height: calc(100vh - 60px);
+    #inputToggleArea {
       width: 100%;
       max-width: 600px;
       background: white;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      padding: 10px 15px;
+      display: flex;
+      gap: 8px;
+      position: sticky;
+      top: 60px;
+      z-index: 99;
+      align-items: flex-end;
     }
-    
+
+    #q {
+      flex: 1;
+      font-size: 16px;
+      padding: 12px 16px;
+      border: 1px solid #ccc;
+      border-radius: 25px;
+      resize: none;
+      min-height: 44px;
+      max-height: 100px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #q:focus {
+      border-color: #007bff;
+      box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
+
+    #sendBtn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      color: white;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      user-select: none;
+      pointer-events: auto;
+      position: relative;
+      z-index: 10;
+    }
+
+    #sendBtn:hover:not(:disabled) {
+      transform: scale(1.05);
+      box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+    }
+
+    #sendBtn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #sendBtn:not(:disabled):active {
+      transform: scale(0.95);
+    }
+
+    #toggleBtn {
+      font-size: 14px;
+      background: transparent;
+      border: none;
+      color: #007bff;
+      cursor: pointer;
+      padding: 10px 8px;
+      transition: color 0.2s;
+    }
+
+    #toggleBtn:hover {
+      color: #0056b3;
+    }
+
+    #container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 600px;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
     #chat {
       flex: 1;
       padding: 15px;
@@ -62,7 +146,7 @@
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
     }
-    
+
     .msg {
       margin: 10px 0;
       display: flex;
@@ -70,7 +154,7 @@
       opacity: 0;
       animation: slideIn 0.4s ease-out forwards;
     }
-    
+
     .user, .bot {
       padding: 12px 16px;
       border-radius: 18px;
@@ -81,14 +165,14 @@
       font-size: 15px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    
+
     .user {
       background: linear-gradient(135deg, #007bff, #0056b3);
       color: white;
       align-self: flex-end;
       border-bottom-right-radius: 6px;
     }
-    
+
     .bot {
       background: white;
       border: 1px solid #e1e5e9;
@@ -97,111 +181,48 @@
       transition: all 0.2s ease-out;
       border-bottom-left-radius: 6px;
     }
-    
+
     .bot.typo-processing {
       background: linear-gradient(135deg, #fff3cd, #ffeaa7);
       border-color: #f39c12;
     }
-    
+
     .bot.error {
       background: linear-gradient(135deg, #f8d7da, #f5c6cb);
       border-color: #dc3545;
       color: #721c24;
     }
-    
+
     .timestamp {
       font-size: 11px;
       color: #6c757d;
       margin-top: 4px;
       align-self: flex-end;
     }
-    
+
     .user + .timestamp {
       align-self: flex-end;
     }
-    
+
     .bot + .timestamp {
       align-self: flex-start;
     }
-    
-    #inputBox {
-      display: flex;
-      padding: 15px;
-      border-top: 1px solid #e1e5e9;
-      background: white;
-      gap: 10px;
-      align-items: flex-end;
-      position: sticky;
-      bottom: 0;
+
+    .hidden {
+      display: none !important;
     }
-    
-    #q {
-      flex: 1;
-      font-size: 16px;
-      padding: 12px 16px;
-      border: 1px solid #ccc;
-      border-radius: 25px;
-      outline: none;
-      resize: none;
-      min-height: 44px;
-      max-height: 100px;
-      font-family: inherit;
-      transition: border-color 0.2s;
-    }
-    
-    #q:focus {
-      border-color: #007bff;
-      box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
-    }
-    
-    #sendBtn {
-      width: 44px;
-      height: 44px;
-      border: none;
-      background: linear-gradient(135deg, #007bff, #0056b3);
-      color: white;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      transition: all 0.2s;
-      flex-shrink: 0;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-      user-select: none;
-      pointer-events: auto;
-      position: relative;
-      z-index: 10;
-    }
-    
-    #sendBtn:hover:not(:disabled) {
-      transform: scale(1.05);
-      box-shadow: 0 2px 8px rgba(0,123,255,0.3);
-    }
-    
-    #sendBtn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-      transform: none;
-    }
-    
-    #sendBtn:not(:disabled):active {
-      transform: scale(0.95);
-    }
-    
+
     a {
       color: #007bff;
       text-decoration: none;
       border-bottom: 1px solid transparent;
       transition: border-color 0.2s;
     }
-    
+
     a:hover {
       border-bottom-color: #007bff;
     }
-    
+
     @keyframes slideIn {
       from { 
         opacity: 0; 
@@ -212,13 +233,13 @@
         transform: translateY(0); 
       }
     }
-    
+
     .typing-indicator {
       display: inline-flex;
       align-items: center;
       gap: 4px;
     }
-    
+
     .typing-indicator span {
       width: 6px;
       height: 6px;
@@ -226,15 +247,15 @@
       border-radius: 50%;
       animation: typing 1.4s infinite;
     }
-    
+
     .typing-indicator span:nth-child(2) {
       animation-delay: 0.2s;
     }
-    
+
     .typing-indicator span:nth-child(3) {
       animation-delay: 0.4s;
     }
-    
+
     @keyframes typing {
       0%, 60%, 100% {
         opacity: 0.3;
@@ -245,7 +266,7 @@
         transform: scale(1);
       }
     }
-    
+
     .typo-notice {
       background: linear-gradient(135deg, #e7f3ff, #cce7ff);
       border: 1px solid #007bff;
@@ -271,8 +292,35 @@
         font-size: 16px;
       }
 
+      #inputToggleArea {
+        top: 50px;
+        padding: 8px 12px;
+        gap: 6px;
+      }
+
+      #q {
+        font-size: 16px; /* iOS 확대 방지 */
+        padding: 10px 14px;
+        border-radius: 20px;
+        min-height: 40px;
+        max-height: 80px;
+      }
+
+      #sendBtn {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+        min-width: 40px;
+        min-height: 40px;
+        -webkit-tap-highlight-color: rgba(0,123,255,0.3);
+      }
+
+      #toggleBtn {
+        font-size: 12px;
+        padding: 8px 6px;
+      }
+
       #container {
-        height: calc(100vh - 50px);
         max-width: 100%;
         box-shadow: none;
       }
@@ -303,28 +351,6 @@
       .timestamp {
         font-size: 10px;
         margin-top: 3px;
-      }
-      
-      #inputBox {
-        padding: 10px;
-        gap: 8px;
-      }
-      
-      #q {
-        font-size: 16px; /* iOS 확대 방지 */
-        padding: 10px 14px;
-        border-radius: 20px;
-        min-height: 40px;
-        max-height: 80px;
-      }
-      
-      #sendBtn {
-        width: 40px;
-        height: 40px;
-        font-size: 16px;
-        min-width: 40px;
-        min-height: 40px;
-        -webkit-tap-highlight-color: rgba(0,123,255,0.3);
       }
 
       .typo-notice {
@@ -382,6 +408,10 @@
         background: linear-gradient(135deg, #0056b3, #004494);
       }
 
+      #inputToggleArea {
+        background: #2d2d2d;
+      }
+
       #container {
         background: #2d2d2d;
         box-shadow: 0 0 20px rgba(255,255,255,0.1);
@@ -397,11 +427,6 @@
         color: #ffffff;
       }
 
-      #inputBox {
-        background: #2d2d2d;
-        border-top-color: #4a4a4a;
-      }
-
       #q {
         background: #3a3a3a;
         border-color: #4a4a4a;
@@ -414,6 +439,14 @@
 
       .timestamp {
         color: #aaa;
+      }
+
+      #toggleBtn {
+        color: #66b3ff;
+      }
+
+      #toggleBtn:hover {
+        color: #4da6ff;
       }
     }
 
@@ -431,15 +464,17 @@
   <div id="header">
     <h1>🎯 투어비스 고객센터</h1>
   </div>
-  
-  <div id="container">
+
+  <div id="inputToggleArea">
+    <textarea id="q" placeholder="질문을 입력하세요..." rows="1"></textarea>
+    <button id="sendBtn" type="button" aria-label="메시지 전송">
+      <span id="sendIcon">➤</span>
+    </button>
+    <button id="toggleBtn" type="button" aria-label="답변 보기/숨기기">▼</button>
+  </div>
+
+  <div id="container" class="hidden">
     <div id="chat"></div>
-    <div id="inputBox">
-      <textarea id="q" placeholder="질문을 입력하세요..." rows="1"></textarea>
-      <button id="sendBtn" type="button" aria-label="메시지 전송">
-        <span id="sendIcon">➤</span>
-      </button>
-    </div>
   </div>
 
   <script>
@@ -447,6 +482,8 @@
     const input = document.getElementById("q");
     const sendBtn = document.getElementById("sendBtn");
     const sendIcon = document.getElementById("sendIcon");
+    const toggleBtn = document.getElementById("toggleBtn");
+    const container = document.getElementById("container");
     let currentBotContent = null;
 
     // 🎯 모바일/PC 감지
@@ -469,6 +506,12 @@
           handleSend();
         }
       }
+    });
+
+    // 🎯 토글 버튼 이벤트
+    toggleBtn.addEventListener('click', () => {
+      const isHidden = container.classList.toggle('hidden');
+      toggleBtn.textContent = isHidden ? '▼' : '▲';
     });
 
     function addMsg(role, text, timestamp) {
@@ -567,6 +610,12 @@
       addMsg("user", message);
       input.value = "";
       input.style.height = 'auto';
+
+      // 답변 영역이 숨겨져 있으면 펼치기
+      if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        toggleBtn.textContent = '▲';
+      }
 
       // 봇 메시지 컨테이너 생성
       const botWrap = document.createElement("div");
@@ -717,7 +766,9 @@
         if (currentHeight < keyboardHeight - 100) {
           // 키보드가 올라온 상태
           setTimeout(() => {
-            chat.scrollTop = chat.scrollHeight;
+            if (!container.classList.contains('hidden')) {
+              chat.scrollTop = chat.scrollHeight;
+            }
           }, 100);
         }
         keyboardHeight = currentHeight;
