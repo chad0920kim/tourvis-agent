@@ -54,6 +54,55 @@
             font-size: 1.1rem;
         }
 
+        /* 탭 스타일 */
+        .tab-container {
+            margin-bottom: 30px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.3);
+            padding: 5px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tab-button {
+            padding: 12px 24px;
+            border: none;
+            background: transparent;
+            color: #667eea;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .tab-button:hover {
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .tab-button.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         .top-controls {
             display: flex;
             justify-content: center;
@@ -188,7 +237,7 @@
             max-height: 100%;
         }
 
-        .feedback-list {
+        .feedback-list, .questions-list {
             background: white;
             border-radius: 15px;
             padding: 25px;
@@ -198,13 +247,13 @@
             position: relative;
         }
 
-        .feedback-list h3 {
+        .feedback-list h3, .questions-list h3 {
             color: #2c3e50;
             margin-bottom: 20px;
             font-size: 1.3rem;
         }
 
-        .feedback-header {
+        .feedback-header, .questions-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -219,27 +268,27 @@
             flex-wrap: wrap;
         }
 
-        .feedback-controls {
+        .feedback-controls, .questions-controls {
             display: flex;
             align-items: center;
             gap: 15px;
             flex-wrap: wrap;
         }
 
-        .feedback-controls .control-group {
+        .feedback-controls .control-group, .questions-controls .control-group {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .feedback-controls .control-group label {
+        .feedback-controls .control-group label, .questions-controls .control-group label {
             font-size: 0.9rem;
             color: #2c3e50;
             font-weight: 600;
             white-space: nowrap;
         }
 
-        .feedback-controls .control-group select {
+        .feedback-controls .control-group select, .questions-controls .control-group select {
             padding: 6px 10px;
             border: 2px solid #667eea;
             border-radius: 6px;
@@ -268,13 +317,13 @@
             box-shadow: 0 3px 10px rgba(32, 201, 151, 0.3);
         }
 
-        .feedback-info {
+        .feedback-info, .questions-info {
             color: #6c757d;
             font-size: 0.9rem;
             font-weight: 600;
         }
 
-        .feedback-item {
+        .feedback-item, .question-item {
             padding: 20px;
             border-left: 4px solid #667eea;
             background: #f8f9fa;
@@ -284,7 +333,7 @@
             position: relative;
         }
 
-        .feedback-item:hover {
+        .feedback-item:hover, .question-item:hover {
             background: #e9ecef;
             transform: translateX(5px);
         }
@@ -297,7 +346,11 @@
             border-left-color: #dc3545;
         }
 
-        .feedback-meta {
+        .question-item {
+            border-left-color: #17a2b8;
+        }
+
+        .feedback-meta, .question-meta {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -323,7 +376,7 @@
             color: #721c24;
         }
 
-        .feedback-content {
+        .feedback-content, .question-content {
             margin-bottom: 12px;
         }
 
@@ -378,7 +431,7 @@
             color: #564ba2;
         }
 
-        .feedback-details {
+        .feedback-details, .question-details {
             font-size: 0.8rem;
             color: #6c757d;
             background: rgba(108, 117, 125, 0.1);
@@ -394,7 +447,7 @@
             border-top: 1px solid #e9ecef;
         }
 
-        #loadMoreBtn {
+        #loadMoreBtn, #loadMoreQuestionsBtn {
             padding: 12px 24px;
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
@@ -405,7 +458,7 @@
             transition: all 0.3s ease;
         }
 
-        #loadMoreBtn:hover {
+        #loadMoreBtn:hover, #loadMoreQuestionsBtn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
@@ -442,26 +495,117 @@
             margin: 20px 0;
         }
 
-        .feedback-list::-webkit-scrollbar {
+        .feedback-list::-webkit-scrollbar, .questions-list::-webkit-scrollbar {
             width: 8px;
         }
 
-        .feedback-list::-webkit-scrollbar-track {
+        .feedback-list::-webkit-scrollbar-track, .questions-list::-webkit-scrollbar-track {
             background: #f1f1f1;
             border-radius: 4px;
         }
 
-        .feedback-list::-webkit-scrollbar-thumb {
+        .feedback-list::-webkit-scrollbar-thumb, .questions-list::-webkit-scrollbar-thumb {
             background: #667eea;
             border-radius: 4px;
         }
 
-        .feedback-list::-webkit-scrollbar-thumb:hover {
+        .feedback-list::-webkit-scrollbar-thumb:hover, .questions-list::-webkit-scrollbar-thumb:hover {
             background: #564ba2;
         }
 
         html {
             scroll-behavior: auto;
+        }
+
+        /* 검색 관련 스타일 */
+        .search-container {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: #564ba2;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .search-btn {
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #17a2b8, #20c997);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
+        }
+
+        .clear-search-btn {
+            padding: 8px 16px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .clear-search-btn:hover {
+            background: #5a6268;
+        }
+
+        /* 단어 빈도 차트 스타일 */
+        .word-frequency-section {
+            margin-bottom: 40px;
+        }
+
+        .word-frequency-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .word-frequency-container h3 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .word-frequency-chart {
+            flex: 1;
+            position: relative;
+        }
+
+        /* 하이라이트 스타일 */
+        mark {
+            background: #fff3cd;
+            color: #856404;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: 600;
         }
 
         @media (max-width: 768px) {
@@ -474,25 +618,38 @@
                 align-items: center;
             }
             
-            .feedback-meta {
+            .feedback-meta, .question-meta {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 5px;
             }
             
-            .feedback-header {
+            .feedback-header, .questions-header {
                 flex-direction: column;
                 align-items: stretch;
                 gap: 15px;
             }
             
-            .feedback-controls {
+            .feedback-controls, .questions-controls {
                 justify-content: center;
                 gap: 10px;
             }
             
-            .feedback-controls .control-group {
+            .feedback-controls .control-group, .questions-controls .control-group {
                 order: -1;
+            }
+
+            .tab-buttons {
+                flex-direction: column;
+            }
+
+            .search-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-input {
+                min-width: auto;
             }
         }
 
@@ -522,90 +679,182 @@
             <p>고객 피드백 통계 및 분석</p>
         </div>
 
-        <div class="top-controls">
-            <div class="control-group">
-                <label>분석 기간:</label>
-                <select id="daysSelect">
-                    <option value="1">오늘</option>
-                    <option value="7" selected>최근 7일</option>
-                    <option value="30">최근 30일</option>
-                    <option value="90">최근 90일</option>
-                </select>
-            </div>
-            <button onclick="refreshData()">🔄 새로고침</button>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-card total">
-                <h3>총 피드백</h3>
-                <div class="value" id="totalFeedback">0</div>
-            </div>
-            <div class="stat-card positive">
-                <h3>👍 긍정적</h3>
-                <div class="value" id="positiveFeedback">0</div>
-            </div>
-            <div class="stat-card negative">
-                <h3>👎 부정적</h3>
-                <div class="value" id="negativeFeedback">0</div>
-            </div>
-            <div class="stat-card users">
-                <h3>피드백 응답자</h3>
-                <div class="value" id="uniqueUsers">0</div>
-            </div>
-            <div class="stat-card satisfaction">
-                <h3>만족도</h3>
-                <div class="value" id="satisfactionRate">0%</div>
-            </div>
-        </div>
-
-        <div class="chart-section">
-            <div class="chart-container">
-                <h3>📊 시간별 피드백 추이</h3>
-                <div class="chart-wrapper">
-                    <canvas id="trendChart"></canvas>
-                </div>
-            </div>
-            <div class="chart-container">
-                <h3>📈 응답자별 평균 피드백 추이</h3>
-                <div class="chart-wrapper">
-                    <canvas id="avgChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="feedback-list">
-            <h3>📝 최근 피드백</h3>
-            <div class="feedback-header">
-                <div class="feedback-filters">
-                    <button onclick="loadFeedback('all')" id="allBtn" class="active">전체</button>
-                    <button onclick="loadFeedback('positive')" id="positiveBtn">긍정적</button>
-                    <button onclick="loadFeedback('negative')" id="negativeBtn">부정적</button>
-                </div>
-                <div class="feedback-controls">
-                    <div class="control-group">
-                        <label>표시 개수:</label>
-                        <select id="limitSelect">
-                            <option value="10">10개</option>
-                            <option value="20" selected>20개</option>
-                            <option value="50">50개</option>
-                            <option value="100">100개</option>
-                            <option value="200">200개</option>
-                        </select>
-                    </div>
-                    <button onclick="expandAllAnswers()" class="expand-all-btn">📖 모두 펼치기</button>
-                    <button onclick="collapseAllAnswers()" class="collapse-all-btn">📋 모두 접기</button>
-                    <div class="feedback-info">
-                        <span id="feedbackCount">0개</span> 표시 중
-                    </div>
-                </div>
-            </div>
-            <div id="feedbackList">
-                <div class="loading">피드백 데이터를 불러오는 중...</div>
-            </div>
-            <div class="load-more-container">
-                <button id="loadMoreBtn" onclick="loadMoreFeedback()" style="display: none;">
-                    📄 더 많이 보기
+        <!-- 탭 버튼 -->
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="switchTab('feedback')" id="feedbackTab">
+                    📊 피드백 분석
                 </button>
+                <button class="tab-button" onclick="switchTab('questions')" id="questionsTab">
+                    🔍 검색어 분석
+                </button>
+            </div>
+        </div>
+
+        <!-- 피드백 탭 내용 -->
+        <div id="feedbackContent" class="tab-content active">
+            <div class="top-controls">
+                <div class="control-group">
+                    <label>분석 기간:</label>
+                    <select id="daysSelect">
+                        <option value="1">오늘</option>
+                        <option value="7" selected>최근 7일</option>
+                        <option value="30">최근 30일</option>
+                        <option value="90">최근 90일</option>
+                    </select>
+                </div>
+                <button onclick="refreshData()">🔄 새로고침</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card total">
+                    <h3>총 피드백</h3>
+                    <div class="value" id="totalFeedback">0</div>
+                </div>
+                <div class="stat-card positive">
+                    <h3>👍 긍정적</h3>
+                    <div class="value" id="positiveFeedback">0</div>
+                </div>
+                <div class="stat-card negative">
+                    <h3>👎 부정적</h3>
+                    <div class="value" id="negativeFeedback">0</div>
+                </div>
+                <div class="stat-card users">
+                    <h3>피드백 응답자</h3>
+                    <div class="value" id="uniqueUsers">0</div>
+                </div>
+                <div class="stat-card satisfaction">
+                    <h3>만족도</h3>
+                    <div class="value" id="satisfactionRate">0%</div>
+                </div>
+            </div>
+
+            <div class="chart-section">
+                <div class="chart-container">
+                    <h3>📊 시간별 피드백 추이</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>📈 응답자별 평균 피드백 추이</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="avgChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feedback-list">
+                <h3>📝 최근 피드백</h3>
+                <div class="feedback-header">
+                    <div class="feedback-filters">
+                        <button onclick="loadFeedback('all')" id="allBtn" class="active">전체</button>
+                        <button onclick="loadFeedback('positive')" id="positiveBtn">긍정적</button>
+                        <button onclick="loadFeedback('negative')" id="negativeBtn">부정적</button>
+                    </div>
+                    <div class="feedback-controls">
+                        <div class="control-group">
+                            <label>표시 개수:</label>
+                            <select id="limitSelect">
+                                <option value="10">10개</option>
+                                <option value="20" selected>20개</option>
+                                <option value="50">50개</option>
+                                <option value="100">100개</option>
+                                <option value="200">200개</option>
+                            </select>
+                        </div>
+                        <button onclick="expandAllAnswers()" class="expand-all-btn">📖 모두 펼치기</button>
+                        <button onclick="collapseAllAnswers()" class="collapse-all-btn">📋 모두 접기</button>
+                        <div class="feedback-info">
+                            <span id="feedbackCount">0개</span> 표시 중
+                        </div>
+                    </div>
+                </div>
+                <div id="feedbackList">
+                    <div class="loading">피드백 데이터를 불러오는 중...</div>
+                </div>
+                <div class="load-more-container">
+                    <button id="loadMoreBtn" onclick="loadMoreFeedback()" style="display: none;">
+                        📄 더 많이 보기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 검색어 탭 내용 -->
+        <div id="questionsContent" class="tab-content">
+            <div class="top-controls">
+                <div class="control-group">
+                    <label>분석 기간:</label>
+                    <select id="questionDaysSelect">
+                        <option value="1">오늘</option>
+                        <option value="7" selected>최근 7일</option>
+                        <option value="30">최근 30일</option>
+                        <option value="90">최근 90일</option>
+                    </select>
+                </div>
+                <button onclick="refreshQuestionData()">🔄 새로고침</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card total">
+                    <h3>총 검색어</h3>
+                    <div class="value" id="totalQuestions">0</div>
+                </div>
+                <div class="stat-card users">
+                    <h3>평균 길이</h3>
+                    <div class="value" id="avgLength">0</div>
+                </div>
+                <div class="stat-card positive">
+                    <h3>평균 단어수</h3>
+                    <div class="value" id="avgWordCount">0</div>
+                </div>
+                <div class="stat-card satisfaction">
+                    <h3>고유 단어</h3>
+                    <div class="value" id="uniqueWords">0</div>
+                </div>
+            </div>
+
+            <div class="word-frequency-section">
+                <div class="word-frequency-container">
+                    <h3>🏷️ 인기 검색 키워드</h3>
+                    <div class="word-frequency-chart">
+                        <canvas id="wordFrequencyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="questions-list">
+                <h3>🔍 검색어 목록</h3>
+                <div class="questions-header">
+                    <div class="search-container">
+                        <input type="text" id="searchInput" class="search-input" placeholder="검색어를 입력하세요..." />
+                        <button onclick="searchQuestions()" class="search-btn">🔍 검색</button>
+                        <button onclick="clearSearch()" class="clear-search-btn">✖ 초기화</button>
+                    </div>
+                    <div class="questions-controls">
+                        <div class="control-group">
+                            <label>표시 개수:</label>
+                            <select id="questionLimitSelect">
+                                <option value="20">20개</option>
+                                <option value="50" selected>50개</option>
+                                <option value="100">100개</option>
+                                <option value="200">200개</option>
+                            </select>
+                        </div>
+                        <div class="questions-info">
+                            <span id="questionsCount">0개</span> 표시 중
+                        </div>
+                    </div>
+                </div>
+                <div id="questionsList">
+                    <div class="loading">검색어 데이터를 불러오는 중...</div>
+                </div>
+                <div class="load-more-container">
+                    <button id="loadMoreQuestionsBtn" onclick="loadMoreQuestions()" style="display: none;">
+                        📄 더 많이 보기
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -614,10 +863,52 @@
         // 설정
         const API_BASE_URL = 'https://tourvis-agent-mibqa.run.goorm.site';
         
-        let trendChart, avgChart;
+        let trendChart, avgChart, wordFrequencyChart;
         let currentFeedbackFilter = 'all';
         let currentFeedbackOffset = 0;
         let hasMoreFeedback = true;
+
+        // 검색어 관련 변수
+        let currentQuestionsOffset = 0;
+        let hasMoreQuestions = true;
+        let currentSearchQuery = '';
+        let isSearchMode = false;
+
+        // 탭 전환 함수
+        function switchTab(tabName) {
+            // 모든 탭 내용 숨기기
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 모든 탭 버튼 비활성화
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 선택된 탭 활성화
+            document.getElementById(tabName + 'Content').classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // 탭에 따른 초기 데이터 로드
+            if (tabName === 'feedback') {
+                if (!trendChart) {
+                    setTimeout(() => {
+                        initCharts();
+                        loadStats();
+                        loadFeedback('all');
+                    }, 100);
+                }
+            } else if (tabName === 'questions') {
+                if (!wordFrequencyChart) {
+                    setTimeout(() => {
+                        initWordFrequencyChart();
+                        loadQuestionStats();
+                        loadQuestions();
+                    }, 100);
+                }
+            }
+        }
 
         // 초기화
         document.addEventListener('DOMContentLoaded', function() {
@@ -645,6 +936,27 @@
                     window.removeEventListener('scroll', preventScroll);
                     window.scrollTo(0, scrollPos);
                 }, 300);
+            });
+
+            // 검색어 탭 이벤트 리스너
+            document.getElementById('questionDaysSelect').addEventListener('change', function() {
+                loadQuestionStats();
+                loadQuestions();
+            });
+
+            document.getElementById('questionLimitSelect').addEventListener('change', function() {
+                if (isSearchMode) {
+                    searchQuestions();
+                } else {
+                    loadQuestions();
+                }
+            });
+
+            // 검색 엔터키 이벤트
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchQuestions();
+                }
             });
         });
 
@@ -870,6 +1182,70 @@
             }
         }
 
+        // 단어 빈도 차트 초기화
+        function initWordFrequencyChart() {
+            try {
+                const ctx = document.getElementById('wordFrequencyChart').getContext('2d');
+                
+                if (wordFrequencyChart) {
+                    wordFrequencyChart.destroy();
+                }
+                
+                wordFrequencyChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: '검색 빈도',
+                            data: [],
+                            backgroundColor: 'rgba(23, 162, 184, 0.8)',
+                            borderColor: '#17a2b8',
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            borderSkipped: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 800 },
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.parsed.x}회 검색됨`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(0,0,0,0.1)' },
+                                ticks: { 
+                                    font: { size: 11 },
+                                    stepSize: 1
+                                }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    font: { size: 11, weight: '600' }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                console.log('단어 빈도 차트 초기화 완료');
+                
+            } catch (error) {
+                console.error('단어 빈도 차트 초기화 오류:', error);
+            }
+        }
+
         // 통계 데이터 로드
         async function loadStats() {
             try {
@@ -915,6 +1291,50 @@
                 
                 updateChartsWithRealData({ positive: 0, negative: 0, satisfaction_rate: 0 });
             }
+        }
+
+        // 검색어 통계 데이터 로드
+        async function loadQuestionStats() {
+            try {
+                const days = document.getElementById('questionDaysSelect').value;
+                console.log(`검색어 통계 로드 중... (${days}일)`);
+                
+                const response = await fetch(`${API_BASE_URL}/admin/questions?limit=1000&days=${days}`);
+                const data = await response.json();
+                
+                console.log('받은 검색어 통계 데이터:', data);
+
+                const stats = data.question_stats || {};
+                document.getElementById('totalQuestions').textContent = stats.total_questions || 0;
+                document.getElementById('avgLength').textContent = `${stats.avg_length || 0}자`;
+                document.getElementById('avgWordCount').textContent = `${stats.avg_word_count || 0}개`;
+                document.getElementById('uniqueWords').textContent = stats.unique_words || 0;
+
+                // 단어 빈도 차트 업데이트
+                updateWordFrequencyChart(data.word_frequency || {});
+
+            } catch (error) {
+                console.error('검색어 통계 로드 오류:', error);
+                showError('검색어 통계 데이터를 불러오는데 실패했습니다.');
+            }
+        }
+
+        // 단어 빈도 차트 업데이트
+        function updateWordFrequencyChart(wordFrequency) {
+            if (!wordFrequencyChart) return;
+            
+            const words = Object.keys(wordFrequency);
+            const frequencies = Object.values(wordFrequency);
+            
+            if (words.length === 0) {
+                wordFrequencyChart.data.labels = ['데이터 없음'];
+                wordFrequencyChart.data.datasets[0].data = [0];
+            } else {
+                wordFrequencyChart.data.labels = words;
+                wordFrequencyChart.data.datasets[0].data = frequencies;
+            }
+            
+            wordFrequencyChart.update('active');
         }
 
         // 실제 데이터로 차트 업데이트
@@ -1016,6 +1436,195 @@
                 avgChart.data.labels = labels;
                 avgChart.data.datasets[0].data = avgDaily;
                 avgChart.data.datasets[1].data = usersDaily;
+            }
+        }
+
+        // 검색어 목록 로드
+        async function loadQuestions(append = false) {
+            try {
+                if (!append) {
+                    currentQuestionsOffset = 0;
+                    hasMoreQuestions = true;
+                    isSearchMode = false;
+                }
+                
+                const questionsListElement = document.getElementById('questionsList');
+                const questionsScrollTop = questionsListElement.scrollTop || 0;
+                
+                if (!append) {
+                    questionsListElement.innerHTML = '<div class="loading">검색어 데이터를 불러오는 중...</div>';
+                }
+
+                const limit = document.getElementById('questionLimitSelect').value;
+                const days = document.getElementById('questionDaysSelect').value;
+                const response = await fetch(`${API_BASE_URL}/admin/questions?limit=${limit}&days=${days}&offset=${currentQuestionsOffset}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                const questions = data.questions || [];
+                hasMoreQuestions = questions.length >= parseInt(limit);
+                
+                if (append) {
+                    appendQuestions(questions);
+                } else {
+                    displayQuestions(questions);
+                }
+                
+                updateQuestionsCount();
+                updateLoadMoreQuestionsButton();
+                
+                if (!append) {
+                    setTimeout(() => {
+                        questionsListElement.scrollTop = questionsScrollTop;
+                    }, 100);
+                }
+
+            } catch (error) {
+                console.error('검색어 로드 오류:', error);
+                document.getElementById('questionsList').innerHTML = 
+                    '<div class="error">검색어 데이터를 불러오는데 실패했습니다.</div>';
+            }
+        }
+
+        // 검색어 검색
+        async function searchQuestions() {
+            try {
+                const query = document.getElementById('searchInput').value.trim();
+                if (!query) {
+                    loadQuestions();
+                    return;
+                }
+
+                currentSearchQuery = query;
+                isSearchMode = true;
+                currentQuestionsOffset = 0;
+                hasMoreQuestions = true;
+                
+                const questionsListElement = document.getElementById('questionsList');
+                questionsListElement.innerHTML = '<div class="loading">검색 중...</div>';
+
+                const limit = document.getElementById('questionLimitSelect').value;
+                const days = document.getElementById('questionDaysSelect').value;
+                const response = await fetch(`${API_BASE_URL}/admin/questions/search?query=${encodeURIComponent(query)}&limit=${limit}&days=${days}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                const questions = data.questions || [];
+                displayQuestions(questions, true);
+                updateQuestionsCount();
+                updateLoadMoreQuestionsButton();
+
+            } catch (error) {
+                console.error('검색어 검색 오류:', error);
+                document.getElementById('questionsList').innerHTML = 
+                    '<div class="error">검색에 실패했습니다.</div>';
+            }
+        }
+
+        // 검색 초기화
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            currentSearchQuery = '';
+            isSearchMode = false;
+            loadQuestions();
+        }
+
+        // 더 많은 검색어 로드
+        async function loadMoreQuestions() {
+            if (!hasMoreQuestions) return;
+            
+            const limit = parseInt(document.getElementById('questionLimitSelect').value);
+            currentQuestionsOffset += limit;
+            
+            const loadMoreBtn = document.getElementById('loadMoreQuestionsBtn');
+            const originalText = loadMoreBtn.textContent;
+            loadMoreBtn.textContent = '로딩 중...';
+            loadMoreBtn.disabled = true;
+            
+            try {
+                if (isSearchMode) {
+                    // 검색 모드에서는 더보기 구현 복잡하므로 일단 비활성화
+                    hasMoreQuestions = false;
+                    updateLoadMoreQuestionsButton();
+                } else {
+                    await loadQuestions(true);
+                }
+            } finally {
+                loadMoreBtn.textContent = originalText;
+                loadMoreBtn.disabled = false;
+            }
+        }
+
+        // 검색어 표시
+        function displayQuestions(questions, isSearch = false) {
+            const questionsList = document.getElementById('questionsList');
+            
+            if (questions.length === 0) {
+                const message = isSearch ? '검색 결과가 없습니다.' : '검색어가 없습니다.';
+                questionsList.innerHTML = `<div style="text-align: center; padding: 40px; color: #6c757d;">${message}</div>`;
+                return;
+            }
+
+            const html = generateQuestionsHTML(questions, isSearch);
+            questionsList.innerHTML = html;
+        }
+
+        // 검색어 추가 (더보기용)
+        function appendQuestions(questions) {
+            if (questions.length === 0) return;
+            
+            const questionsList = document.getElementById('questionsList');
+            const html = generateQuestionsHTML(questions);
+            questionsList.insertAdjacentHTML('beforeend', html);
+        }
+
+        // 검색어 HTML 생성
+        function generateQuestionsHTML(questions, isSearch = false) {
+            return questions.map((question, index) => {
+                const date = new Date(question.timestamp).toLocaleString('ko-KR');
+                const uniqueId = `question-${Date.now()}-${index}`;
+                
+                const displayQuestion = isSearch ? 
+                    (question.highlighted_question || question.question) : 
+                    question.question;
+                
+                return `
+                    <div class="question-item">
+                        <div class="question-meta">
+                            <span>${date}</span>
+                            <span>${question.length}자 · ${question.word_count}단어</span>
+                        </div>
+                        <div class="question-content">
+                            <div class="question">${displayQuestion}</div>
+                        </div>
+                        <div class="question-details">
+                            🔍 ID: ${uniqueId} | 📝 길이: ${question.length}자 | 📊 단어수: ${question.word_count}개
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 검색어 개수 업데이트
+        function updateQuestionsCount() {
+            const questionItems = document.querySelectorAll('.question-item');
+            const count = questionItems.length;
+            document.getElementById('questionsCount').textContent = `${count}개`;
+        }
+
+        // 더보기 버튼 업데이트 (검색어)
+        function updateLoadMoreQuestionsButton() {
+            const loadMoreBtn = document.getElementById('loadMoreQuestionsBtn');
+            if (hasMoreQuestions && !isSearchMode) {
+                loadMoreBtn.style.display = 'inline-block';
+            } else {
+                loadMoreBtn.style.display = 'none';
             }
         }
 
@@ -1287,10 +1896,29 @@
             }, 200);
         }
 
+        // 검색어 데이터 새로고침
+        function refreshQuestionData() {
+            const currentScrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+            
+            loadQuestionStats();
+            if (isSearchMode) {
+                searchQuestions();
+            } else {
+                loadQuestions();
+            }
+            
+            setTimeout(() => {
+                window.scrollTo(0, currentScrollPosition);
+            }, 200);
+        }
+
         // 오류 표시
         function showError(message) {
-            document.getElementById('feedbackList').innerHTML = 
-                `<div class="error">${message}</div>`;
+            const activeTab = document.querySelector('.tab-content.active');
+            const listElement = activeTab.querySelector('#feedbackList, #questionsList');
+            if (listElement) {
+                listElement.innerHTML = `<div class="error">${message}</div>`;
+            }
         }
     </script>
 </body>
