@@ -773,11 +773,6 @@
                 <div id="feedbackList">
                     <div class="loading">피드백 데이터를 불러오는 중...</div>
                 </div>
-                <div class="load-more-container">
-                    <button id="loadMoreBtn" onclick="loadMoreFeedback()" style="display: none;">
-                        📄 더 많이 보기
-                    </button>
-                </div>
             </div>
         </div>
 
@@ -865,8 +860,9 @@
         
         let trendChart, avgChart, wordFrequencyChart;
         let currentFeedbackFilter = 'all';
-        let currentFeedbackOffset = 0;
-        let hasMoreFeedback = true;
+        
+        // 🔧 offset 관련 변수 제거 및 단순화
+        let allFeedbackData = []; // 모든 피드백 데이터를 저장할 배열
 
         // 검색어 관련 변수
         let currentQuestionsOffset = 0;
@@ -957,6 +953,11 @@
                 if (e.key === 'Enter') {
                     searchQuestions();
                 }
+            });
+
+            // 🔧 피드백 표시 개수 변경 이벤트 리스너 추가
+            document.getElementById('limitSelect').addEventListener('change', function() {
+                displayFilteredFeedback(currentFeedbackFilter);
             });
         });
 
@@ -1628,26 +1629,19 @@
             }
         }
 
-        // 피드백 목록 로드
-        async function loadFeedback(type = 'all', append = false) {
+        // 🔧 피드백 목록 로드 (수정된 버전 - offset 제거)
+        async function loadFeedback(type = 'all') {
             try {
                 currentFeedbackFilter = type;
-                if (!append) {
-                    currentFeedbackOffset = 0;
-                    hasMoreFeedback = true;
-                }
-                
                 updateFilterButtons(type);
                 
                 const feedbackListElement = document.getElementById('feedbackList');
                 const feedbackScrollTop = feedbackListElement.scrollTop || 0;
                 
-                if (!append) {
-                    feedbackListElement.innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
-                }
+                feedbackListElement.innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
 
-                const limit = document.getElementById('limitSelect').value;
-                const response = await fetch(`${API_BASE_URL}/admin/feedback?limit=${limit}&feedback_type=${type}&offset=${currentFeedbackOffset}`);
+                // 🔧 offset 파라미터 제거하고 limit만 큰 값으로 설정
+                const response = await fetch(`${API_BASE_URL}/admin/feedback?limit=1000&feedback_type=${type}`);
                 const data = await response.json();
 
                 if (data.error) {
@@ -1655,22 +1649,17 @@
                 }
 
                 const feedbacks = data.feedback || [];
-                hasMoreFeedback = feedbacks.length >= parseInt(limit);
+                console.log(`🔧 받은 피드백 데이터: ${feedbacks.length}개 (필터: ${type})`);
                 
-                if (append) {
-                    appendFeedback(feedbacks);
-                } else {
-                    displayFeedback(feedbacks);
-                }
+                // 🔧 모든 피드백 데이터를 전역 변수에 저장
+                allFeedbackData = feedbacks;
                 
-                updateFeedbackCount();
-                updateLoadMoreButton();
+                // 🔧 현재 필터와 표시 개수에 따라 표시
+                displayFilteredFeedback(type);
                 
-                if (!append && type === currentFeedbackFilter) {
-                    setTimeout(() => {
-                        feedbackListElement.scrollTop = feedbackScrollTop;
-                    }, 100);
-                }
+                setTimeout(() => {
+                    feedbackListElement.scrollTop = feedbackScrollTop;
+                }, 100);
 
             } catch (error) {
                 console.error('피드백 로드 오류:', error);
@@ -1679,24 +1668,25 @@
             }
         }
 
-        // 더 많은 피드백 로드
-        async function loadMoreFeedback() {
-            if (!hasMoreFeedback) return;
-            
+        // 🔧 필터링된 피드백 표시 함수
+        function displayFilteredFeedback(type) {
             const limit = parseInt(document.getElementById('limitSelect').value);
-            currentFeedbackOffset += limit;
             
-            const loadMoreBtn = document.getElementById('loadMoreBtn');
-            const originalText = loadMoreBtn.textContent;
-            loadMoreBtn.textContent = '로딩 중...';
-            loadMoreBtn.disabled = true;
-            
-            try {
-                await loadFeedback(currentFeedbackFilter, true);
-            } finally {
-                loadMoreBtn.textContent = originalText;
-                loadMoreBtn.disabled = false;
+            // 타입에 따라 필터링
+            let filteredFeedbacks = allFeedbackData;
+            if (type === 'positive') {
+                filteredFeedbacks = allFeedbackData.filter(fb => fb.feedback === 'positive');
+            } else if (type === 'negative') {
+                filteredFeedbacks = allFeedbackData.filter(fb => fb.feedback === 'negative');
             }
+            
+            // 표시 개수만큼만 자르기
+            const limitedFeedbacks = filteredFeedbacks.slice(0, limit);
+            
+            console.log(`🔧 표시할 피드백: 전체 ${filteredFeedbacks.length}개 중 ${limitedFeedbacks.length}개 표시 (필터: ${type}, 한도: ${limit})`);
+            
+            displayFeedback(limitedFeedbacks);
+            updateFeedbackCount(filteredFeedbacks.length, limitedFeedbacks.length);
         }
 
         // 피드백 표시
@@ -1710,15 +1700,6 @@
 
             const html = generateFeedbackHTML(feedbacks);
             feedbackList.innerHTML = html;
-        }
-
-        // 피드백 추가 (더보기용)
-        function appendFeedback(feedbacks) {
-            if (feedbacks.length === 0) return;
-            
-            const feedbackList = document.getElementById('feedbackList');
-            const html = generateFeedbackHTML(feedbacks);
-            feedbackList.insertAdjacentHTML('beforeend', html);
         }
 
         // 피드백 HTML 생성
@@ -1855,33 +1836,24 @@
             }
         }
 
-        // 피드백 개수 업데이트
-        function updateFeedbackCount() {
-            const feedbackItems = document.querySelectorAll('.feedback-item');
-            const count = feedbackItems.length;
-            document.getElementById('feedbackCount').textContent = `${count}개`;
+        // 🔧 피드백 개수 업데이트 (수정된 버전)
+        function updateFeedbackCount(totalCount = null, displayedCount = null) {
+            if (totalCount !== null && displayedCount !== null) {
+                // 전체 개수와 표시 개수가 다른 경우
+                if (totalCount > displayedCount) {
+                    document.getElementById('feedbackCount').textContent = `${displayedCount}개 (전체 ${totalCount}개 중)`;
+                } else {
+                    document.getElementById('feedbackCount').textContent = `${displayedCount}개`;
+                }
+            } else {
+                // 기존 방식 (화면에 보이는 개수만 계산)
+                const feedbackItems = document.querySelectorAll('.feedback-item');
+                const count = feedbackItems.length;
+                document.getElementById('feedbackCount').textContent = `${count}개`;
+            }
             
             const toggleButtons = document.querySelectorAll('.expand-toggle');
-            console.log(`피드백 개수 업데이트: ${count}개, 토글 버튼: ${toggleButtons.length}개`);
-            
-            const limitSelect = document.getElementById('limitSelect');
-            if (limitSelect && !limitSelect.hasAttribute('data-listener-added')) {
-                limitSelect.addEventListener('change', function() {
-                    console.log('표시 개수 변경:', this.value);
-                    loadFeedback(currentFeedbackFilter);
-                });
-                limitSelect.setAttribute('data-listener-added', 'true');
-            }
-        }
-
-        // 더보기 버튼 업데이트
-        function updateLoadMoreButton() {
-            const loadMoreBtn = document.getElementById('loadMoreBtn');
-            if (hasMoreFeedback) {
-                loadMoreBtn.style.display = 'inline-block';
-            } else {
-                loadMoreBtn.style.display = 'none';
-            }
+            console.log(`피드백 개수 업데이트: 토글 버튼 ${toggleButtons.length}개`);
         }
 
         // 데이터 새로고침
