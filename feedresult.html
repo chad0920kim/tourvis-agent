@@ -152,6 +152,9 @@
             padding: 25px;
             border-radius: 15px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            height: 400px;
+            display: flex;
+            flex-direction: column;
         }
 
         .chart-container h3 {
@@ -159,6 +162,13 @@
             color: #2c3e50;
             margin-bottom: 20px;
             font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+            min-height: 300px;
         }
 
         .feedback-list {
@@ -280,6 +290,30 @@
             margin: 20px 0;
         }
 
+        /* 스크롤바 스타일링 */
+        .feedback-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .feedback-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .feedback-list::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        .feedback-list::-webkit-scrollbar-thumb:hover {
+            background: #564ba2;
+        }
+
+        /* 자동 스크롤 방지 */
+        html {
+            scroll-behavior: auto;
+        }
+
         @media (max-width: 768px) {
             .chart-section {
                 grid-template-columns: 1fr;
@@ -352,11 +386,15 @@
         <div class="chart-section">
             <div class="chart-container">
                 <h3>📊 피드백 분포</h3>
-                <canvas id="pieChart"></canvas>
+                <div class="chart-wrapper">
+                    <canvas id="pieChart"></canvas>
+                </div>
             </div>
             <div class="chart-container">
-                <h3>📈 만족도 트렌드</h3>
-                <canvas id="barChart"></canvas>
+                <h3>📈 피드백 현황</h3>
+                <div class="chart-wrapper">
+                    <canvas id="barChart"></canvas>
+                </div>
             </div>
         </div>
 
@@ -382,12 +420,30 @@
 
         // 초기화
         document.addEventListener('DOMContentLoaded', function() {
-            initCharts();
-            loadStats();
-            loadFeedback('all');
+            console.log('대시보드 초기화 시작');
+            
+            // 차트 초기화 대기
+            setTimeout(() => {
+                initCharts();
+                console.log('차트 초기화 완료');
+                
+                // 데이터 로드
+                setTimeout(() => {
+                    loadStats();
+                    loadFeedback('all');
+                    console.log('초기 데이터 로드 완료');
+                }, 100);
+            }, 100);
             
             // 이벤트 리스너
-            document.getElementById('daysSelect').addEventListener('change', loadStats);
+            document.getElementById('daysSelect').addEventListener('change', function() {
+                // 스크롤 위치 저장
+                const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
+                loadStats();
+                // 스크롤 위치 복원
+                setTimeout(() => window.scrollTo(0, scrollPos), 100);
+            });
+            
             document.getElementById('feedbackFilter').addEventListener('change', function() {
                 loadFeedback(this.value);
             });
@@ -395,16 +451,20 @@
 
         // 차트 초기화
         function initCharts() {
-            // 파이 차트
+            // 파이 차트 초기화
             const pieCtx = document.getElementById('pieChart').getContext('2d');
             pieChart = new Chart(pieCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['긍정적', '부정적'],
+                    labels: ['👍 긍정적', '👎 부정적'],
                     datasets: [{
-                        data: [0, 0],
-                        backgroundColor: ['#28a745', '#dc3545'],
-                        borderWidth: 0,
+                        data: [1, 1], // 초기값 설정 (0,0이면 차트가 안보임)
+                        backgroundColor: [
+                            '#28a745',
+                            '#dc3545'
+                        ],
+                        borderColor: '#ffffff',
+                        borderWidth: 3,
                         cutout: '60%'
                     }]
                 },
@@ -417,24 +477,53 @@
                             labels: {
                                 padding: 20,
                                 font: {
-                                    size: 14
+                                    size: 14,
+                                    weight: '600'
+                                },
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value}개 (${percentage}%)`;
                                 }
                             }
+                        }
+                    },
+                    elements: {
+                        arc: {
+                            borderRadius: 8
                         }
                     }
                 }
             });
 
-            // 바 차트
+            // 바 차트 초기화
             const barCtx = document.getElementById('barChart').getContext('2d');
             barChart = new Chart(barCtx, {
                 type: 'bar',
                 data: {
-                    labels: ['긍정적', '부정적', '만족도 %'],
+                    labels: ['긍정적 피드백', '부정적 피드백', '만족도 (%)'],
                     datasets: [{
                         label: '수치',
                         data: [0, 0, 0],
-                        backgroundColor: ['#28a745', '#dc3545', '#20c997'],
+                        backgroundColor: [
+                            'rgba(40, 167, 69, 0.8)',
+                            'rgba(220, 53, 69, 0.8)',
+                            'rgba(32, 201, 151, 0.8)'
+                        ],
+                        borderColor: [
+                            '#28a745',
+                            '#dc3545',
+                            '#20c997'
+                        ],
+                        borderWidth: 2,
                         borderRadius: 8,
                         borderSkipped: false,
                     }]
@@ -445,6 +534,18 @@
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label;
+                                    const value = context.parsed.y;
+                                    if (label.includes('만족도')) {
+                                        return `${label}: ${value}%`;
+                                    }
+                                    return `${label}: ${value}개`;
+                                }
+                            }
                         }
                     },
                     scales: {
@@ -452,13 +553,29 @@
                             beginAtZero: true,
                             grid: {
                                 color: 'rgba(0,0,0,0.1)'
+                            },
+                            ticks: {
+                                font: {
+                                    size: 12
+                                }
                             }
                         },
                         x: {
                             grid: {
                                 display: false
+                            },
+                            ticks: {
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                },
+                                maxRotation: 0
                             }
                         }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
                     }
                 }
             });
@@ -471,8 +588,12 @@
                 const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
                 
                 const days = document.getElementById('daysSelect').value;
+                console.log(`통계 로드 중... (${days}일)`);
+                
                 const response = await fetch(`${API_BASE_URL}/stats?days=${days}`);
                 const data = await response.json();
+                
+                console.log('받은 통계 데이터:', data);
 
                 // 통계 카드 업데이트
                 document.getElementById('totalFeedback').textContent = data.total_feedback || 0;
@@ -492,22 +613,43 @@
             } catch (error) {
                 console.error('통계 로드 오류:', error);
                 showError('통계 데이터를 불러오는데 실패했습니다.');
+                
+                // 오류 시 기본값으로 차트 업데이트
+                updateCharts({
+                    positive: 0,
+                    negative: 0,
+                    satisfaction_rate: 0
+                });
             }
         }
 
         // 차트 업데이트 (애니메이션 최적화)
         function updateCharts(data) {
-            // 파이 차트 업데이트 (애니메이션 비활성화)
-            pieChart.data.datasets[0].data = [data.positive || 0, data.negative || 0];
-            pieChart.update('none'); // 애니메이션 없이 업데이트
-
-            // 바 차트 업데이트 (애니메이션 비활성화)
-            barChart.data.datasets[0].data = [
-                data.positive || 0, 
-                data.negative || 0, 
-                data.satisfaction_rate || 0
-            ];
-            barChart.update('none'); // 애니메이션 없이 업데이트
+            const positive = data.positive || 0;
+            const negative = data.negative || 0;
+            const satisfactionRate = data.satisfaction_rate || 0;
+            
+            // 데이터가 없을 때 처리
+            if (positive === 0 && negative === 0) {
+                // 파이 차트 - 데이터 없음 표시
+                pieChart.data.datasets[0].data = [1, 1];
+                pieChart.data.labels = ['데이터 없음', ''];
+                pieChart.data.datasets[0].backgroundColor = ['#e9ecef', '#f8f9fa'];
+            } else {
+                // 파이 차트 - 실제 데이터 표시
+                pieChart.data.datasets[0].data = [positive, negative];
+                pieChart.data.labels = ['👍 긍정적', '👎 부정적'];
+                pieChart.data.datasets[0].backgroundColor = ['#28a745', '#dc3545'];
+            }
+            
+            // 바 차트 업데이트
+            barChart.data.datasets[0].data = [positive, negative, satisfactionRate];
+            
+            // 차트 업데이트 (부드러운 애니메이션)
+            pieChart.update('active');
+            barChart.update('active');
+            
+            console.log('차트 업데이트:', { positive, negative, satisfactionRate });
         }
 
         // 피드백 목록 로드
