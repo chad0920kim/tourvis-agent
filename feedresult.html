@@ -893,7 +893,8 @@
                 document.getElementById('uniqueUsers').textContent = data.unique_users || 0;
                 document.getElementById('satisfactionRate').textContent = `${data.satisfaction_rate || 0}%`;
 
-                updateCharts(data);
+                // 실제 데이터만 표시 (차트 데이터가 없으면 '데이터 없음' 표시)
+                updateChartsWithRealData(data);
 
                 setTimeout(() => {
                     document.body.style.overflow = '';
@@ -912,32 +913,33 @@
                 document.body.style.top = '';
                 document.body.style.width = '';
                 
-                updateCharts({ positive: 0, negative: 0, satisfaction_rate: 0 });
+                updateChartsWithRealData({ positive: 0, negative: 0, satisfaction_rate: 0 });
             }
         }
 
-        // 차트 업데이트
-        function updateCharts(data) {
+        // 실제 데이터로 차트 업데이트
+        function updateChartsWithRealData(data) {
             const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
             const positive = data.positive || 0;
             const negative = data.negative || 0;
             const totalFeedback = data.total_feedback || 0;
             const uniqueUsers = data.unique_users || 0;
-            const days = parseInt(document.getElementById('daysSelect').value);
             
             document.body.style.overflow = 'hidden';
             
             try {
-                // 시간별 추이 막대그래프 업데이트
-                updateTrendBarChart(days, positive, negative);
-                
-                // 응답자별 평균 피드백 추이 곡선그래프 업데이트
-                updateAvgLineChart(days, totalFeedback, uniqueUsers);
+                // 데이터가 없으면 "데이터 없음" 표시
+                if (totalFeedback === 0) {
+                    showNoDataCharts();
+                } else {
+                    // 6월 20일부터 현재까지의 실제 기간만 표시
+                    showActualPeriodCharts(positive, negative, totalFeedback, uniqueUsers);
+                }
                 
                 trendChart.update('active');
                 avgChart.update('active');
                 
-                console.log('차트 업데이트 (막대+곡선):', { positive, negative, totalFeedback, uniqueUsers });
+                console.log('실제 데이터 차트 업데이트:', { positive, negative, totalFeedback, uniqueUsers });
                 
             } finally {
                 setTimeout(() => {
@@ -947,135 +949,74 @@
             }
         }
 
-        // 시간별 추이 막대그래프 데이터 생성
-        function updateTrendBarChart(days, totalPositive, totalNegative) {
-            let labels = [];
-            let positiveData = [];
-            let negativeData = [];
+        // 데이터 없음 표시
+        function showNoDataCharts() {
+            // 시간별 추이 차트
+            trendChart.data.labels = ['데이터 없음'];
+            trendChart.data.datasets[0].data = [0];
+            trendChart.data.datasets[1].data = [0];
             
-            if (days === 1) {
-                // 오늘: 4시간 간격 (6개 구간) - 고정된 분포 패턴
-                const hourLabels = ['0-3시', '4-7시', '8-11시', '12-15시', '16-19시', '20-23시'];
-                const positivePattern = [0.05, 0.08, 0.25, 0.22, 0.30, 0.10]; // 오후에 많음
-                const negativePattern = [0.08, 0.12, 0.20, 0.25, 0.25, 0.10]; // 고르게 분포
-                
-                labels = hourLabels;
-                positiveData = positivePattern.map(ratio => Math.floor(totalPositive * ratio));
-                negativeData = negativePattern.map(ratio => Math.floor(totalNegative * ratio));
-                
-            } else if (days === 7) {
-                // 7일: 일별 - 요일별 고정 패턴
-                const today = new Date();
-                const weekPattern = [0.12, 0.15, 0.18, 0.16, 0.20, 0.10, 0.09]; // 목금에 많음
-                
-                for (let i = 6; i >= 0; i--) {
-                    const date = new Date(today);
-                    date.setDate(date.getDate() - i);
-                    labels.push(`${date.getMonth() + 1}/${date.getDate()}`);
-                }
-                
-                positiveData = weekPattern.map(ratio => Math.floor(totalPositive * ratio));
-                negativeData = weekPattern.map(ratio => Math.floor(totalNegative * ratio));
-                
-            } else if (days === 30) {
-                // 30일: 주별 (4주) - 주별 고정 패턴
-                const weekPattern = [0.20, 0.28, 0.32, 0.20]; // 2-3주차에 많음
-                
-                for (let i = 3; i >= 0; i--) {
-                    const weekStart = new Date();
-                    weekStart.setDate(weekStart.getDate() - (i * 7 + 6));
-                    labels.push(`${weekStart.getMonth() + 1}/${weekStart.getDate()}주`);
-                }
-                
-                positiveData = weekPattern.map(ratio => Math.floor(totalPositive * ratio));
-                negativeData = weekPattern.map(ratio => Math.floor(totalNegative * ratio));
-                
-            } else {
-                // 90일: 월별 (3개월) - 월별 고정 패턴
-                const today = new Date();
-                const monthPattern = [0.25, 0.40, 0.35]; // 최근 월에 많음
-                
-                for (let i = 2; i >= 0; i--) {
-                    const date = new Date(today);
-                    date.setMonth(date.getMonth() - i);
-                    labels.push(`${date.getMonth() + 1}월`);
-                }
-                
-                positiveData = monthPattern.map(ratio => Math.floor(totalPositive * ratio));
-                negativeData = monthPattern.map(ratio => Math.floor(totalNegative * ratio));
-            }
-            
-            trendChart.data.labels = labels;
-            trendChart.data.datasets[0].data = positiveData;
-            trendChart.data.datasets[1].data = negativeData;
+            // 평균 피드백 추이 차트
+            avgChart.data.labels = ['데이터 없음'];
+            avgChart.data.datasets[0].data = [0];
+            avgChart.data.datasets[1].data = [0];
         }
 
-        // 응답자별 평균 피드백 추이 곡선그래프 데이터 생성
-        function updateAvgLineChart(days, totalFeedback, totalUsers) {
-            let labels = [];
-            let avgFeedbackData = [];
-            let userCountData = [];
+        // 실제 기간 차트 (6월 20일부터 현재까지)
+        function showActualPeriodCharts(positive, negative, totalFeedback, uniqueUsers) {
+            const today = new Date();
+            const startDate = new Date('2025-06-20'); // 피드백 시작일
+            const daysSinceStart = Math.ceil((today - startDate) / (1000 * 60 * 60 * 24));
             
-            const baseAvg = totalUsers > 0 ? totalFeedback / totalUsers : 0;
+            console.log(`실제 데이터 기간: 6월 20일부터 ${daysSinceStart}일간`);
             
-            if (days === 1) {
-                // 오늘: 4시간 간격 - 고정된 하루 패턴
-                const hourLabels = ['0-3시', '4-7시', '8-11시', '12-15시', '16-19시', '20-23시'];
-                const avgPattern = [0.6, 0.7, 1.2, 1.1, 1.3, 0.8]; // 낮에 높음
-                const userPattern = [0.05, 0.08, 0.25, 0.22, 0.30, 0.10]; // 사용자 분포
+            // 현재는 하루만 지났으므로 오늘 데이터만 표시
+            if (daysSinceStart <= 1) {
+                // 오늘 하루 데이터
+                trendChart.data.labels = ['6월 20일 (오늘)'];
+                trendChart.data.datasets[0].data = [positive];
+                trendChart.data.datasets[1].data = [negative];
                 
-                labels = hourLabels;
-                avgFeedbackData = avgPattern.map(ratio => parseFloat((baseAvg * ratio).toFixed(1)));
-                userCountData = userPattern.map(ratio => Math.floor(totalUsers * ratio));
-                
-            } else if (days === 7) {
-                // 7일: 일별 - 고정된 요일 패턴
-                const today = new Date();
-                const avgWeekPattern = [0.8, 0.9, 1.1, 1.0, 1.2, 0.9, 0.7]; // 평일에 높음
-                const userWeekPattern = [0.12, 0.15, 0.18, 0.16, 0.20, 0.10, 0.09];
-                
-                for (let i = 6; i >= 0; i--) {
-                    const date = new Date(today);
-                    date.setDate(date.getDate() - i);
-                    labels.push(`${date.getMonth() + 1}/${date.getDate()}`);
-                }
-                
-                avgFeedbackData = avgWeekPattern.map(ratio => parseFloat((baseAvg * ratio).toFixed(1)));
-                userCountData = userWeekPattern.map(ratio => Math.floor(totalUsers * ratio));
-                
-            } else if (days === 30) {
-                // 30일: 주별 - 고정된 월간 패턴
-                const avgMonthPattern = [0.8, 1.1, 1.2, 0.9]; // 중순에 높음
-                const userMonthPattern = [0.20, 0.28, 0.32, 0.20];
-                
-                for (let i = 3; i >= 0; i--) {
-                    const weekStart = new Date();
-                    weekStart.setDate(weekStart.getDate() - (i * 7 + 6));
-                    labels.push(`${weekStart.getMonth() + 1}/${weekStart.getDate()}주`);
-                }
-                
-                avgFeedbackData = avgMonthPattern.map(ratio => parseFloat((baseAvg * ratio).toFixed(1)));
-                userCountData = userMonthPattern.map(ratio => Math.floor(totalUsers * ratio));
+                const avgFeedback = uniqueUsers > 0 ? (totalFeedback / uniqueUsers) : 0;
+                avgChart.data.labels = ['6월 20일 (오늘)'];
+                avgChart.data.datasets[0].data = [parseFloat(avgFeedback.toFixed(1))];
+                avgChart.data.datasets[1].data = [uniqueUsers];
                 
             } else {
-                // 90일: 월별 - 고정된 분기 패턴
-                const today = new Date();
-                const avgQuarterPattern = [0.9, 1.0, 1.1]; // 점진적 증가
-                const userQuarterPattern = [0.25, 0.40, 0.35];
+                // 여러 날 데이터가 있는 경우 (향후 사용)
+                const labels = [];
+                const positiveDaily = [];
+                const negativeDaily = [];
+                const avgDaily = [];
+                const usersDaily = [];
                 
-                for (let i = 2; i >= 0; i--) {
-                    const date = new Date(today);
-                    date.setMonth(date.getMonth() - i);
-                    labels.push(`${date.getMonth() + 1}월`);
+                for (let i = 0; i < Math.min(daysSinceStart, 7); i++) {
+                    const date = new Date(startDate);
+                    date.setDate(date.getDate() + i);
+                    labels.push(`${date.getMonth() + 1}/${date.getDate()}`);
+                    
+                    // 첫날에만 데이터가 있고 나머지는 0 (실제 데이터에 따라)
+                    if (i === 0) {
+                        positiveDaily.push(positive);
+                        negativeDaily.push(negative);
+                        avgDaily.push(uniqueUsers > 0 ? parseFloat((totalFeedback / uniqueUsers).toFixed(1)) : 0);
+                        usersDaily.push(uniqueUsers);
+                    } else {
+                        positiveDaily.push(0);
+                        negativeDaily.push(0);
+                        avgDaily.push(0);
+                        usersDaily.push(0);
+                    }
                 }
                 
-                avgFeedbackData = avgQuarterPattern.map(ratio => parseFloat((baseAvg * ratio).toFixed(1)));
-                userCountData = userQuarterPattern.map(ratio => Math.floor(totalUsers * ratio));
+                trendChart.data.labels = labels;
+                trendChart.data.datasets[0].data = positiveDaily;
+                trendChart.data.datasets[1].data = negativeDaily;
+                
+                avgChart.data.labels = labels;
+                avgChart.data.datasets[0].data = avgDaily;
+                avgChart.data.datasets[1].data = usersDaily;
             }
-            
-            avgChart.data.labels = labels;
-            avgChart.data.datasets[0].data = avgFeedbackData;
-            avgChart.data.datasets[1].data = userCountData;
         }
 
         // 피드백 목록 로드
