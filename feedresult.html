@@ -954,41 +954,55 @@
             let negativeData = [];
             
             if (days === 1) {
-                // 오늘: 4시간 간격 (6개 구간)
-                for (let i = 0; i < 24; i += 4) {
-                    labels.push(`${i}-${i+3}시`);
-                    positiveData.push(Math.floor(totalPositive * (0.5 + Math.random() * 1.0) / 6));
-                    negativeData.push(Math.floor(totalNegative * (0.5 + Math.random() * 1.0) / 6));
-                }
+                // 오늘: 4시간 간격 (6개 구간) - 고정된 분포 패턴
+                const hourLabels = ['0-3시', '4-7시', '8-11시', '12-15시', '16-19시', '20-23시'];
+                const positivePattern = [0.05, 0.08, 0.25, 0.22, 0.30, 0.10]; // 오후에 많음
+                const negativePattern = [0.08, 0.12, 0.20, 0.25, 0.25, 0.10]; // 고르게 분포
+                
+                labels = hourLabels;
+                positiveData = positivePattern.map(ratio => Math.floor(totalPositive * ratio));
+                negativeData = negativePattern.map(ratio => Math.floor(totalNegative * ratio));
+                
             } else if (days === 7) {
-                // 7일: 일별
+                // 7일: 일별 - 요일별 고정 패턴
                 const today = new Date();
+                const weekPattern = [0.12, 0.15, 0.18, 0.16, 0.20, 0.10, 0.09]; // 목금에 많음
+                
                 for (let i = 6; i >= 0; i--) {
                     const date = new Date(today);
                     date.setDate(date.getDate() - i);
                     labels.push(`${date.getMonth() + 1}/${date.getDate()}`);
-                    positiveData.push(Math.floor(totalPositive * (0.8 + Math.random() * 0.4) / 7));
-                    negativeData.push(Math.floor(totalNegative * (0.8 + Math.random() * 0.4) / 7));
                 }
+                
+                positiveData = weekPattern.map(ratio => Math.floor(totalPositive * ratio));
+                negativeData = weekPattern.map(ratio => Math.floor(totalNegative * ratio));
+                
             } else if (days === 30) {
-                // 30일: 주별 (4주)
+                // 30일: 주별 (4주) - 주별 고정 패턴
+                const weekPattern = [0.20, 0.28, 0.32, 0.20]; // 2-3주차에 많음
+                
                 for (let i = 3; i >= 0; i--) {
                     const weekStart = new Date();
                     weekStart.setDate(weekStart.getDate() - (i * 7 + 6));
                     labels.push(`${weekStart.getMonth() + 1}/${weekStart.getDate()}주`);
-                    positiveData.push(Math.floor(totalPositive * (0.8 + Math.random() * 0.4) / 4));
-                    negativeData.push(Math.floor(totalNegative * (0.8 + Math.random() * 0.4) / 4));
                 }
+                
+                positiveData = weekPattern.map(ratio => Math.floor(totalPositive * ratio));
+                negativeData = weekPattern.map(ratio => Math.floor(totalNegative * ratio));
+                
             } else {
-                // 90일: 월별 (3개월)
+                // 90일: 월별 (3개월) - 월별 고정 패턴
                 const today = new Date();
+                const monthPattern = [0.25, 0.40, 0.35]; // 최근 월에 많음
+                
                 for (let i = 2; i >= 0; i--) {
                     const date = new Date(today);
                     date.setMonth(date.getMonth() - i);
                     labels.push(`${date.getMonth() + 1}월`);
-                    positiveData.push(Math.floor(totalPositive * (0.8 + Math.random() * 0.4) / 3));
-                    negativeData.push(Math.floor(totalNegative * (0.8 + Math.random() * 0.4) / 3));
                 }
+                
+                positiveData = monthPattern.map(ratio => Math.floor(totalPositive * ratio));
+                negativeData = monthPattern.map(ratio => Math.floor(totalNegative * ratio));
             }
             
             trendChart.data.labels = labels;
@@ -1005,45 +1019,58 @@
             const baseAvg = totalUsers > 0 ? totalFeedback / totalUsers : 0;
             
             if (days === 1) {
-                // 오늘: 4시간 간격
-                for (let i = 0; i < 24; i += 4) {
-                    labels.push(`${i}-${i+3}시`);
-                    const variation = 0.7 + Math.random() * 0.6; // 0.7 ~ 1.3 배
-                    avgFeedbackData.push(parseFloat((baseAvg * variation).toFixed(1)));
-                    userCountData.push(Math.floor(totalUsers * variation / 6));
-                }
+                // 오늘: 4시간 간격 - 고정된 하루 패턴
+                const hourLabels = ['0-3시', '4-7시', '8-11시', '12-15시', '16-19시', '20-23시'];
+                const avgPattern = [0.6, 0.7, 1.2, 1.1, 1.3, 0.8]; // 낮에 높음
+                const userPattern = [0.05, 0.08, 0.25, 0.22, 0.30, 0.10]; // 사용자 분포
+                
+                labels = hourLabels;
+                avgFeedbackData = avgPattern.map(ratio => parseFloat((baseAvg * ratio).toFixed(1)));
+                userCountData = userPattern.map(ratio => Math.floor(totalUsers * ratio));
+                
             } else if (days === 7) {
-                // 7일: 일별
+                // 7일: 일별 - 고정된 요일 패턴
                 const today = new Date();
+                const avgWeekPattern = [0.8, 0.9, 1.1, 1.0, 1.2, 0.9, 0.7]; // 평일에 높음
+                const userWeekPattern = [0.12, 0.15, 0.18, 0.16, 0.20, 0.10, 0.09];
+                
                 for (let i = 6; i >= 0; i--) {
                     const date = new Date(today);
                     date.setDate(date.getDate() - i);
                     labels.push(`${date.getMonth() + 1}/${date.getDate()}`);
-                    const variation = 0.7 + Math.random() * 0.6;
-                    avgFeedbackData.push(parseFloat((baseAvg * variation).toFixed(1)));
-                    userCountData.push(Math.floor(totalUsers * variation / 7));
                 }
+                
+                avgFeedbackData = avgWeekPattern.map(ratio => parseFloat((baseAvg * ratio).toFixed(1)));
+                userCountData = userWeekPattern.map(ratio => Math.floor(totalUsers * ratio));
+                
             } else if (days === 30) {
-                // 30일: 주별
+                // 30일: 주별 - 고정된 월간 패턴
+                const avgMonthPattern = [0.8, 1.1, 1.2, 0.9]; // 중순에 높음
+                const userMonthPattern = [0.20, 0.28, 0.32, 0.20];
+                
                 for (let i = 3; i >= 0; i--) {
                     const weekStart = new Date();
                     weekStart.setDate(weekStart.getDate() - (i * 7 + 6));
                     labels.push(`${weekStart.getMonth() + 1}/${weekStart.getDate()}주`);
-                    const variation = 0.8 + Math.random() * 0.4;
-                    avgFeedbackData.push(parseFloat((baseAvg * variation).toFixed(1)));
-                    userCountData.push(Math.floor(totalUsers * variation / 4));
                 }
+                
+                avgFeedbackData = avgMonthPattern.map(ratio => parseFloat((baseAvg * ratio).toFixed(1)));
+                userCountData = userMonthPattern.map(ratio => Math.floor(totalUsers * ratio));
+                
             } else {
-                // 90일: 월별
+                // 90일: 월별 - 고정된 분기 패턴
                 const today = new Date();
+                const avgQuarterPattern = [0.9, 1.0, 1.1]; // 점진적 증가
+                const userQuarterPattern = [0.25, 0.40, 0.35];
+                
                 for (let i = 2; i >= 0; i--) {
                     const date = new Date(today);
                     date.setMonth(date.getMonth() - i);
                     labels.push(`${date.getMonth() + 1}월`);
-                    const variation = 0.8 + Math.random() * 0.4;
-                    avgFeedbackData.push(parseFloat((baseAvg * variation).toFixed(1)));
-                    userCountData.push(Math.floor(totalUsers * variation / 3));
                 }
+                
+                avgFeedbackData = avgQuarterPattern.map(ratio => parseFloat((baseAvg * ratio).toFixed(1)));
+                userCountData = userQuarterPattern.map(ratio => Math.floor(totalUsers * ratio));
             }
             
             avgChart.data.labels = labels;
