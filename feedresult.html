@@ -145,6 +145,8 @@
             grid-template-columns: 1fr 1fr;
             gap: 30px;
             margin-bottom: 40px;
+            position: relative;
+            min-height: 450px; /* 고정 높이 설정 */
         }
 
         .chart-container {
@@ -155,6 +157,8 @@
             height: 400px;
             display: flex;
             flex-direction: column;
+            position: relative;
+            overflow: hidden; /* 넘치는 내용 숨김 */
         }
 
         .chart-container h3 {
@@ -163,12 +167,25 @@
             margin-bottom: 20px;
             font-size: 1.3rem;
             flex-shrink: 0;
+            height: 30px; /* 고정 높이 */
         }
 
         .chart-wrapper {
             flex: 1;
             position: relative;
             min-height: 300px;
+            max-height: 320px; /* 최대 높이 제한 */
+            width: 100%;
+        }
+
+        .chart-wrapper canvas {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100%;
+            max-height: 100%;
         }
 
         .feedback-list {
@@ -437,11 +454,23 @@
             
             // 이벤트 리스너
             document.getElementById('daysSelect').addEventListener('change', function() {
-                // 스크롤 위치 저장
+                // 현재 스크롤 위치 완전 고정
                 const scrollPos = window.pageYOffset || document.documentElement.scrollTop;
+                const bodyScrollTop = document.body.scrollTop;
+                const docScrollTop = document.documentElement.scrollTop;
+                
+                // 스크롤 고정
+                window.addEventListener('scroll', preventScroll);
+                
                 loadStats();
-                // 스크롤 위치 복원
-                setTimeout(() => window.scrollTo(0, scrollPos), 100);
+                
+                // 스크롤 고정 해제 및 위치 복원
+                setTimeout(() => {
+                    window.removeEventListener('scroll', preventScroll);
+                    document.body.scrollTop = bodyScrollTop;
+                    document.documentElement.scrollTop = docScrollTop;
+                    window.scrollTo(0, scrollPos);
+                }, 300);
             });
             
             document.getElementById('feedbackFilter').addEventListener('change', function() {
@@ -449,136 +478,180 @@
             });
         });
 
+        // 스크롤 방지 함수
+        function preventScroll(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+
         // 차트 초기화
         function initCharts() {
-            // 파이 차트 초기화
-            const pieCtx = document.getElementById('pieChart').getContext('2d');
-            pieChart = new Chart(pieCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['👍 긍정적', '👎 부정적'],
-                    datasets: [{
-                        data: [1, 1], // 초기값 설정 (0,0이면 차트가 안보임)
-                        backgroundColor: [
-                            '#28a745',
-                            '#dc3545'
-                        ],
-                        borderColor: '#ffffff',
-                        borderWidth: 3,
-                        cutout: '60%'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 20,
-                                font: {
-                                    size: 14,
-                                    weight: '600'
-                                },
-                                usePointStyle: true,
-                                pointStyle: 'circle'
+            try {
+                // 파이 차트 초기화
+                const pieCtx = document.getElementById('pieChart').getContext('2d');
+                
+                // 기존 차트 제거
+                if (pieChart) {
+                    pieChart.destroy();
+                }
+                
+                pieChart = new Chart(pieCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['👍 긍정적', '👎 부정적'],
+                        datasets: [{
+                            data: [1, 1], // 초기값 설정 (0,0이면 차트가 안보임)
+                            backgroundColor: [
+                                '#28a745',
+                                '#dc3545'
+                            ],
+                            borderColor: '#ffffff',
+                            borderWidth: 3,
+                            cutout: '60%'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0 // 애니메이션 비활성화
+                        },
+                        layout: {
+                            padding: {
+                                top: 10,
+                                bottom: 10
                             }
                         },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                                    return `${label}: ${value}개 (${percentage}%)`;
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    font: {
+                                        size: 12,
+                                        weight: '600'
+                                    },
+                                    usePointStyle: true,
+                                    pointStyle: 'circle'
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                        return `${label}: ${value}개 (${percentage}%)`;
+                                    }
                                 }
                             }
-                        }
-                    },
-                    elements: {
-                        arc: {
-                            borderRadius: 8
+                        },
+                        elements: {
+                            arc: {
+                                borderRadius: 8
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            // 바 차트 초기화
-            const barCtx = document.getElementById('barChart').getContext('2d');
-            barChart = new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['긍정적 피드백', '부정적 피드백', '만족도 (%)'],
-                    datasets: [{
-                        label: '수치',
-                        data: [0, 0, 0],
-                        backgroundColor: [
-                            'rgba(40, 167, 69, 0.8)',
-                            'rgba(220, 53, 69, 0.8)',
-                            'rgba(32, 201, 151, 0.8)'
-                        ],
-                        borderColor: [
-                            '#28a745',
-                            '#dc3545',
-                            '#20c997'
-                        ],
-                        borderWidth: 2,
-                        borderRadius: 8,
-                        borderSkipped: false,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label;
-                                    const value = context.parsed.y;
-                                    if (label.includes('만족도')) {
-                                        return `${label}: ${value}%`;
-                                    }
-                                    return `${label}: ${value}개`;
-                                }
-                            }
-                        }
+                // 바 차트 초기화
+                const barCtx = document.getElementById('barChart').getContext('2d');
+                
+                // 기존 차트 제거
+                if (barChart) {
+                    barChart.destroy();
+                }
+                
+                barChart = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['긍정적', '부정적', '만족도'],
+                        datasets: [{
+                            label: '수치',
+                            data: [0, 0, 0],
+                            backgroundColor: [
+                                'rgba(40, 167, 69, 0.8)',
+                                'rgba(220, 53, 69, 0.8)',
+                                'rgba(32, 201, 151, 0.8)'
+                            ],
+                            borderColor: [
+                                '#28a745',
+                                '#dc3545',
+                                '#20c997'
+                            ],
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            borderSkipped: false,
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0,0,0,0.1)'
-                            },
-                            ticks: {
-                                font: {
-                                    size: 12
-                                }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0 // 애니메이션 비활성화
+                        },
+                        layout: {
+                            padding: {
+                                top: 10,
+                                bottom: 10
                             }
                         },
-                        x: {
-                            grid: {
+                        plugins: {
+                            legend: {
                                 display: false
                             },
-                            ticks: {
-                                font: {
-                                    size: 12,
-                                    weight: '600'
-                                },
-                                maxRotation: 0
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label;
+                                        const value = context.parsed.y;
+                                        if (label.includes('만족도')) {
+                                            return `${label}: ${value}%`;
+                                        }
+                                        return `${label}: ${value}개`;
+                                    }
+                                }
                             }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0,0,0,0.1)'
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11,
+                                        weight: '600'
+                                    },
+                                    maxRotation: 0
+                                }
+                            }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
                         }
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
                     }
-                }
-            });
+                });
+                
+                console.log('차트 초기화 성공');
+                
+            } catch (error) {
+                console.error('차트 초기화 오류:', error);
+            }
         }
 
         // 통계 데이터 로드
@@ -589,6 +662,12 @@
                 
                 const days = document.getElementById('daysSelect').value;
                 console.log(`통계 로드 중... (${days}일)`);
+                
+                // 페이지 스크롤 임시 비활성화
+                document.body.style.overflow = 'hidden';
+                document.body.style.position = 'fixed';
+                document.body.style.top = `-${scrollPosition}px`;
+                document.body.style.width = '100%';
                 
                 const response = await fetch(`${API_BASE_URL}/stats?days=${days}`);
                 const data = await response.json();
@@ -605,14 +684,24 @@
                 // 차트 업데이트
                 updateCharts(data);
 
-                // 스크롤 위치 복원
+                // 스크롤 활성화 및 위치 복원
                 setTimeout(() => {
+                    document.body.style.overflow = '';
+                    document.body.style.position = '';
+                    document.body.style.top = '';
+                    document.body.style.width = '';
                     window.scrollTo(0, scrollPosition);
-                }, 50);
+                }, 100);
 
             } catch (error) {
                 console.error('통계 로드 오류:', error);
                 showError('통계 데이터를 불러오는데 실패했습니다.');
+                
+                // 오류 시에도 스크롤 복원
+                document.body.style.overflow = '';
+                document.body.style.position = '';
+                document.body.style.top = '';
+                document.body.style.width = '';
                 
                 // 오류 시 기본값으로 차트 업데이트
                 updateCharts({
@@ -625,31 +714,46 @@
 
         // 차트 업데이트 (애니메이션 최적화)
         function updateCharts(data) {
+            // 스크롤 위치 고정
+            const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+            
             const positive = data.positive || 0;
             const negative = data.negative || 0;
             const satisfactionRate = data.satisfaction_rate || 0;
             
-            // 데이터가 없을 때 처리
-            if (positive === 0 && negative === 0) {
-                // 파이 차트 - 데이터 없음 표시
-                pieChart.data.datasets[0].data = [1, 1];
-                pieChart.data.labels = ['데이터 없음', ''];
-                pieChart.data.datasets[0].backgroundColor = ['#e9ecef', '#f8f9fa'];
-            } else {
-                // 파이 차트 - 실제 데이터 표시
-                pieChart.data.datasets[0].data = [positive, negative];
-                pieChart.data.labels = ['👍 긍정적', '👎 부정적'];
-                pieChart.data.datasets[0].backgroundColor = ['#28a745', '#dc3545'];
+            // 차트 업데이트 전 DOM 고정
+            document.body.style.overflow = 'hidden';
+            
+            try {
+                // 데이터가 없을 때 처리
+                if (positive === 0 && negative === 0) {
+                    // 파이 차트 - 데이터 없음 표시
+                    pieChart.data.datasets[0].data = [1, 1];
+                    pieChart.data.labels = ['데이터 없음', ''];
+                    pieChart.data.datasets[0].backgroundColor = ['#e9ecef', '#f8f9fa'];
+                } else {
+                    // 파이 차트 - 실제 데이터 표시
+                    pieChart.data.datasets[0].data = [positive, negative];
+                    pieChart.data.labels = ['👍 긍정적', '👎 부정적'];
+                    pieChart.data.datasets[0].backgroundColor = ['#28a745', '#dc3545'];
+                }
+                
+                // 바 차트 업데이트
+                barChart.data.datasets[0].data = [positive, negative, satisfactionRate];
+                
+                // 차트 업데이트 (애니메이션 없음으로 변경)
+                pieChart.update('none');
+                barChart.update('none');
+                
+                console.log('차트 업데이트:', { positive, negative, satisfactionRate });
+                
+            } finally {
+                // DOM 고정 해제 및 스크롤 위치 복원
+                setTimeout(() => {
+                    document.body.style.overflow = '';
+                    window.scrollTo(0, currentScrollY);
+                }, 50);
             }
-            
-            // 바 차트 업데이트
-            barChart.data.datasets[0].data = [positive, negative, satisfactionRate];
-            
-            // 차트 업데이트 (부드러운 애니메이션)
-            pieChart.update('active');
-            barChart.update('active');
-            
-            console.log('차트 업데이트:', { positive, negative, satisfactionRate });
         }
 
         // 피드백 목록 로드
