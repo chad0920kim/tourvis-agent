@@ -546,8 +546,8 @@
                     <button onclick="loadFeedback('negative')" id="negativeBtn">부정적</button>
                 </div>
                 <div class="feedback-controls">
-                    <button onclick="toggleAllAnswers(true)" class="expand-all-btn">📖 모두 펼치기</button>
-                    <button onclick="toggleAllAnswers(false)" class="collapse-all-btn">📋 모두 접기</button>
+                    <button onclick="console.log('펼치기 클릭'); toggleAllAnswers(true);" class="expand-all-btn">📖 모두 펼치기</button>
+                    <button onclick="console.log('접기 클릭'); toggleAllAnswers(false);" class="collapse-all-btn">📋 모두 접기</button>
                     <div class="feedback-info">
                         <span id="feedbackCount">0개</span> 표시 중
                     </div>
@@ -1010,7 +1010,9 @@
                 // 답변 내용 처리
                 const answerText = feedback.answer || '답변 없음';
                 const isLongAnswer = answerText.length > 150; // 150자 이상이면 긴 답변으로 판단
-                const uniqueId = `feedback-${Date.now()}-${index}`;
+                const uniqueId = `feedback-${feedback.feedback_id || Date.now()}-${index}`;
+                
+                console.log(`피드백 생성: ${uniqueId}, 긴 답변: ${isLongAnswer}, 답변 길이: ${answerText.length}`);
                 
                 return `
                     <div class="feedback-item ${feedbackClass}">
@@ -1039,17 +1041,26 @@
 
         // 답변 확장/축소 토글
         function toggleAnswer(uniqueId) {
+            console.log(`개별 토글: ${uniqueId}`);
+            
             const answerElement = document.getElementById(`answer-${uniqueId}`);
             const toggleButton = document.getElementById(`toggle-${uniqueId}`);
+            
+            if (!answerElement || !toggleButton) {
+                console.error(`요소를 찾을 수 없음: answer-${uniqueId} 또는 toggle-${uniqueId}`);
+                return;
+            }
             
             if (answerElement.classList.contains('collapsed')) {
                 // 확장
                 answerElement.classList.remove('collapsed');
                 toggleButton.textContent = '▲ 접기';
+                console.log(`${uniqueId} 확장됨`);
             } else {
                 // 축소
                 answerElement.classList.add('collapsed');
                 toggleButton.textContent = '▼ 더보기';
+                console.log(`${uniqueId} 축소됨`);
             }
         }
 
@@ -1058,6 +1069,10 @@
             const feedbackItems = document.querySelectorAll('.feedback-item');
             const count = feedbackItems.length;
             document.getElementById('feedbackCount').textContent = `${count}개`;
+            
+            // 토글 버튼 개수도 로그로 확인
+            const toggleButtons = document.querySelectorAll('.expand-toggle');
+            console.log(`피드백 개수 업데이트: ${count}개, 토글 버튼: ${toggleButtons.length}개`);
         }
 
         // 더보기 버튼 업데이트
