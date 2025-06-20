@@ -204,10 +204,47 @@
             font-size: 1.3rem;
         }
 
+        .feedback-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .feedback-info {
+            color: #6c757d;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .load-more-container {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        #loadMoreBtn {
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        #loadMoreBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
         .feedback-filters {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
             flex-wrap: wrap;
         }
 
@@ -374,6 +411,16 @@
                     <option value="negative">부정적</option>
                 </select>
             </div>
+            <div class="control-group">
+                <label>표시 개수:</label>
+                <select id="limitSelect">
+                    <option value="10">10개</option>
+                    <option value="20" selected>20개</option>
+                    <option value="50">50개</option>
+                    <option value="100">100개</option>
+                    <option value="200">200개</option>
+                </select>
+            </div>
             <button onclick="refreshData()">🔄 새로고침</button>
         </div>
 
@@ -417,13 +464,23 @@
 
         <div class="feedback-list">
             <h3>📝 최근 피드백</h3>
-            <div class="feedback-filters">
-                <button onclick="loadFeedback('all')" id="allBtn" class="active">전체</button>
-                <button onclick="loadFeedback('positive')" id="positiveBtn">긍정적</button>
-                <button onclick="loadFeedback('negative')" id="negativeBtn">부정적</button>
+            <div class="feedback-header">
+                <div class="feedback-filters">
+                    <button onclick="loadFeedback('all')" id="allBtn" class="active">전체</button>
+                    <button onclick="loadFeedback('positive')" id="positiveBtn">긍정적</button>
+                    <button onclick="loadFeedback('negative')" id="negativeBtn">부정적</button>
+                </div>
+                <div class="feedback-info">
+                    <span id="feedbackCount">0개</span> 표시 중
+                </div>
             </div>
             <div id="feedbackList">
                 <div class="loading">피드백 데이터를 불러오는 중...</div>
+            </div>
+            <div class="load-more-container">
+                <button id="loadMoreBtn" onclick="loadMoreFeedback()" style="display: none;">
+                    📄 더 많이 보기
+                </button>
             </div>
         </div>
     </div>
@@ -434,6 +491,8 @@
         
         let pieChart, barChart;
         let currentFeedbackFilter = 'all';
+        let currentFeedbackOffset = 0;
+        let hasMoreFeedback = true;
 
         // 초기화
         document.addEventListener('DOMContentLoaded', function() {
@@ -757,28 +816,51 @@
         }
 
         // 피드백 목록 로드
-        async function loadFeedback(type = 'all') {
+        async function loadFeedback(type = 'all', append = false) {
             try {
                 currentFeedbackFilter = type;
+                if (!append) {
+                    currentFeedbackOffset = 0;
+                    hasMoreFeedback = true;
+                }
+                
                 updateFilterButtons(type);
                 
                 // 피드백 목록의 현재 스크롤 위치 저장
                 const feedbackListElement = document.getElementById('feedbackList');
                 const feedbackScrollTop = feedbackListElement.scrollTop || 0;
                 
-                feedbackListElement.innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
+                if (!append) {
+                    feedbackListElement.innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
+                }
 
-                const response = await fetch(`${API_BASE_URL}/admin/feedback?limit=20&feedback_type=${type}`);
+                const limit = document.getElementById('limitSelect').value;
+                const response = await fetch(`${API_BASE_URL}/admin/feedback?limit=${limit}&feedback_type=${type}&offset=${currentFeedbackOffset}`);
                 const data = await response.json();
 
                 if (data.error) {
                     throw new Error(data.error);
                 }
 
-                displayFeedback(data.feedback || []);
+                const feedbacks = data.feedback || [];
+                
+                // 더 이상 데이터가 없는지 확인
+                hasMoreFeedback = feedbacks.length >= parseInt(limit);
+                
+                if (append) {
+                    appendFeedback(feedbacks);
+                } else {
+                    displayFeedback(feedbacks);
+                }
+                
+                // 피드백 개수 업데이트
+                updateFeedbackCount();
+                
+                // 더보기 버튼 표시/숨김
+                updateLoadMoreButton();
                 
                 // 스크롤 위치 복원 (새로운 데이터를 로드할 때만)
-                if (type !== currentFeedbackFilter) {
+                if (!append && type === currentFeedbackFilter) {
                     setTimeout(() => {
                         feedbackListElement.scrollTop = feedbackScrollTop;
                     }, 100);
@@ -791,6 +873,27 @@
             }
         }
 
+        // 더 많은 피드백 로드
+        async function loadMoreFeedback() {
+            if (!hasMoreFeedback) return;
+            
+            const limit = parseInt(document.getElementById('limitSelect').value);
+            currentFeedbackOffset += limit;
+            
+            // 로딩 표시
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            const originalText = loadMoreBtn.textContent;
+            loadMoreBtn.textContent = '로딩 중...';
+            loadMoreBtn.disabled = true;
+            
+            try {
+                await loadFeedback(currentFeedbackFilter, true);
+            } finally {
+                loadMoreBtn.textContent = originalText;
+                loadMoreBtn.disabled = false;
+            }
+        }
+
         // 피드백 표시
         function displayFeedback(feedbacks) {
             const feedbackList = document.getElementById('feedbackList');
@@ -800,7 +903,22 @@
                 return;
             }
 
-            const html = feedbacks.map(feedback => {
+            const html = generateFeedbackHTML(feedbacks);
+            feedbackList.innerHTML = html;
+        }
+
+        // 피드백 추가 (더보기용)
+        function appendFeedback(feedbacks) {
+            if (feedbacks.length === 0) return;
+            
+            const feedbackList = document.getElementById('feedbackList');
+            const html = generateFeedbackHTML(feedbacks);
+            feedbackList.insertAdjacentHTML('beforeend', html);
+        }
+
+        // 피드백 HTML 생성
+        function generateFeedbackHTML(feedbacks) {
+            return feedbacks.map(feedback => {
                 const date = new Date(feedback.timestamp).toLocaleString('ko-KR');
                 const feedbackClass = feedback.feedback === 'positive' ? 'positive' : 'negative';
                 const feedbackText = feedback.feedback === 'positive' ? '👍 긍정적' : '👎 부정적';
@@ -821,8 +939,23 @@
                     </div>
                 `;
             }).join('');
+        }
 
-            feedbackList.innerHTML = html;
+        // 피드백 개수 업데이트
+        function updateFeedbackCount() {
+            const feedbackItems = document.querySelectorAll('.feedback-item');
+            const count = feedbackItems.length;
+            document.getElementById('feedbackCount').textContent = `${count}개`;
+        }
+
+        // 더보기 버튼 업데이트
+        function updateLoadMoreButton() {
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (hasMoreFeedback) {
+                loadMoreBtn.style.display = 'inline-block';
+            } else {
+                loadMoreBtn.style.display = 'none';
+            }
         }
 
         // 필터 버튼 업데이트
