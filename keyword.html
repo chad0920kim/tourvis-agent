@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>투어비스 키워드 모니터링</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f9f9f9; }
+    h1 { color: #333; }
+    form { margin-bottom: 2rem; }
+    table { border-collapse: collapse; width: 100%; background: white; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem 1rem; text-align: left; }
+    th { background: #f0f0f0; }
+    .note { color: gray; font-size: 0.9rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>투어비스 키워드 모니터링</h1>
+  <form id="searchForm">
+    조회 방식:
+    <select name="mode">
+      <option value="day">일 단위</option>
+      <option value="week">주 단위</option>
+    </select>
+    날짜 (YYYY-MM-DD):
+    <input type="date" name="date" value="">
+    <button type="submit">검색</button>
+  </form>
+  <div id="result"></div>
+  <div class="note">※ FastAPI 서버가 백그라운드에서 실행 중이어야 정상 작동합니다.</div>
+  <script>
+    document.getElementById("searchForm").onsubmit = async function(e) {
+      e.preventDefault();
+      const form = e.target;
+      const mode = form.mode.value;
+      const date = form.date.value;
+      const url = `https://tourvis-agent-mibqa.run.goorm.site:8080/api/keywords?mode=${mode}&date=${date}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        const resultDiv = document.getElementById("result");
+        if (!data.results || data.results.length === 0) {
+          resultDiv.innerHTML = "<p>결과 없음</p>";
+          return;
+        }
+
+        let html = `<h2>총 ${data.total}건</h2><table><tr><th>키워드</th><th>건수</th></tr>`;
+        html += data.results.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+        html += `</table>`;
+        resultDiv.innerHTML = html;
+      } catch (err) {
+        document.getElementById("result").innerHTML = "<p>서버 응답 오류: " + err + "</p>";
+      }
+    }
+  </script>
+</body>
+</html>
