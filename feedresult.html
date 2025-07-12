@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 통합 대시보드</title>
+    <title>투어비스 통합 대시보드 mrk3</title>
     <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
@@ -457,7 +457,7 @@
 <body>
     <div class="dashboard-container">
         <div class="header">
-            <h1>🎯 투어비스 통합 대시보드 (mrk2)</h1>
+            <h1>🎯 투어비스 통합 대시보드 (mrk3)</h1>
             <div class="connection-status disconnected" id="connectionStatus">
                 <span id="connectionText">API 연결 확인 중...</span>
             </div>
@@ -1235,12 +1235,28 @@
             const matchCtx = document.getElementById('matchStatusChart').getContext('2d');
             let matchGood = 0, matchBad = 0, matchImprove = 0, noMatch = 0;
             
-            conversations.forEach(conv => {
+            console.log('🔍 Q&A 매치 상태 분석 시작:', conversations.length, '개');
+            
+            conversations.forEach((conv, index) => {
                 const status = conv.match_status;
-                if (status === 1.0) matchGood++;
-                else if (status === 0.0) matchBad++;
-                else if (status === 0.5) matchImprove++;
-                else noMatch++;
+                console.log(`Q&A #${index}: ID=${conv.id}, match_status=${status}`);
+                
+                if (status === 1.0 || status === '1.0' || status === 1) {
+                    matchGood++;
+                } else if (status === 0.0 || status === '0.0' || status === 0) {
+                    matchBad++;
+                } else if (status === 0.5 || status === '0.5') {
+                    matchImprove++;
+                } else {
+                    noMatch++;
+                }
+            });
+            
+            console.log('📊 매치 상태 집계 결과:', {
+                matchGood,
+                matchBad, 
+                matchImprove,
+                noMatch
             });
             
             matchStatusChart = new Chart(matchCtx, {
@@ -1260,22 +1276,47 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value}개 (${percentage}%)`;
+                                }
+                            }
                         }
                     }
                 }
             });
 
-            // Q&A 시간 추이 차트
+            // Q&A 시간 추이 차트 (요일별 분석 개선)
             if (qaTimeChart) qaTimeChart.destroy();
             
             const timeCtx = document.getElementById('qaTimeChart').getContext('2d');
+            
+            // 요일별 Q&A 수 계산
+            const dayData = [0, 0, 0, 0, 0, 0, 0]; // 월~일
+            conversations.forEach(conv => {
+                if (conv.timestamp) {
+                    const date = new Date(conv.timestamp);
+                    const dayOfWeek = date.getDay(); // 0=일요일, 1=월요일, ..., 6=토요일
+                    const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 월요일=0, 일요일=6으로 조정
+                    dayData[adjustedDay]++;
+                }
+            });
+            
+            console.log('📅 요일별 Q&A 분포:', dayData);
+            
             qaTimeChart = new Chart(timeCtx, {
                 type: 'bar',
                 data: {
                     labels: ['월', '화', '수', '목', '금', '토', '일'],
                     datasets: [{
                         label: 'Q&A 수',
-                        data: [0, 0, 0, 0, 0, 0, 0],
+                        data: dayData,
                         backgroundColor: '#17a2b8',
                         borderColor: '#138496',
                         borderWidth: 1
