@@ -174,44 +174,123 @@ async function fetchFeedback(limit = 50, feedback_type = 'all') {
 
 // 피드백과 Q&A 데이터 연결 함수
 function enrichFeedbackWithQA(feedbackData, qaData) {
-    return feedbackData.map(feedback => {
-        const chatId = feedback.feedback; // 실제 chat_id
-        const relatedQAs = qaData.filter(qa => qa.chat_id === chatId);
+    console.log('🔍 피드백-Q&A 연결 시작');
+    console.log('📝 피드백 데이터 수:', feedbackData.length);
+    console.log('💬 Q&A 데이터 수:', qaData.length);
+    
+    // 문자열 유사도 계산 함수 (간단한 Levenshtein distance 기반)
+    function similarity(str1, str2) {
+        if (!str1 || !str2) return 0;
         
-        if (relatedQAs.length > 0) {
-            // 피드백 시간 이전의 Q&A들만 필터링
-            const feedbackTime = new Date(feedback.timestamp);
-            const validQAs = relatedQAs.filter(qa => {
-                const qaTime = new Date(qa.timestamp);
-                return qaTime <= feedbackTime;
-            });
-            
-            if (validQAs.length > 0) {
-                // 피드백 시간에 가장 가까운 Q&A를 선택
-                const closestQA = validQAs.sort((a, b) => {
-                    const timeA = Math.abs(feedbackTime - new Date(a.timestamp));
-                    const timeB = Math.abs(feedbackTime - new Date(b.timestamp));
-                    return timeA - timeB;
-                })[0];
-                
-                return {
-                    ...feedback,
-                    question: closestQA.question,
-                    answer: closestQA.answer,
-                    qa_id: closestQA.id,
-                    match_status: closestQA.match_status,
-                    hasQAData: true,
-                    qaCount: validQAs.length
-                };
+        // 정규화: 공백, 특수문자 제거, 소문자 변환
+        const normalize = (s) => s.replace(/[\s\W]/g, '').toLowerCase();
+        const s1 = normalize(str1);
+        const s2 = normalize(str2);
+        
+        if (s1 === s2) return 1.0;
+        if (s1.length === 0 || s2.length === 0) return 0;
+        
+        // 포함 관계 확인
+        if (s1.includes(s2) || s2.includes(s1)) {
+            return Math.max(s2.length / s1.length, s1.length / s2.length) * 0.8;
+        }
+        
+        // 간단한 편집 거리 계산
+        const matrix = [];
+        for (let i = 0; i <= s2.length; i++) {
+            matrix[i] = [i];
+        }
+        for (let j = 0; j <= s1.length; j++) {
+            matrix[0][j] = j;
+        }
+        
+        for (let i = 1; i <= s2.length; i++) {
+            for (let j = 1; j <= s1.length; j++) {
+                if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j] + 1
+                    );
+                }
             }
         }
         
+        const distance = matrix[s2.length][s1.length];
+        const maxLength = Math.max(s1.length, s2.length);
+        return 1 - (distance / maxLength);
+    }
+    
+    return feedbackData.map((feedback, index) => {
+        const chatId = feedback.feedback || feedback.chat_id;
+        console.log(`\n🔍 피드백 #${index} 처리 중, Chat ID: ${chatId}`);
+        
+        const relatedQAs = qaData.filter(qa => qa.chat_id === chatId);
+        console.log(`💬 관련 Q&A 개수: ${relatedQAs.length}`);
+        
+        if (relatedQAs.length > 0) {
+            let bestMatch = null;
+            let bestScore = 0;
+            
+            // 🔧 피드백에 원본 질문이 있으면 그것과 매칭
+            if (feedback.question && feedback.question.trim()) {
+                console.log(`📝 피드백 질문: "${feedback.question}"`);
+                
+                relatedQAs.forEach(qa => {
+                    const score = similarity(feedback.question, qa.question);
+                    console.log(`💬 Q&A 질문: "${qa.question?.substring(0, 30)}..." - 유사도: ${score.toFixed(3)}`);
+                    
+                    if (score > bestScore && score > 0.7) { // 70% 이상 유사할 때만
+                        bestScore = score;
+                        bestMatch = qa;
+                    }
+                });
+                
+                if (bestMatch) {
+                    console.log(`✅ 질문 매칭 성공! 유사도: ${bestScore.toFixed(3)}`);
+                    console.log(`   선택된 Q&A: ${bestMatch.question?.substring(0, 50)}...`);
+                    
+                    return {
+                        ...feedback,
+                        question: bestMatch.question,
+                        answer: bestMatch.answer,
+                        qa_id: bestMatch.id,
+                        match_status: bestMatch.match_status,
+                        hasQAData: true,
+                        qaCount: relatedQAs.length,
+                        matchScore: bestScore
+                    };
+                }
+            }
+            
+            // 🔧 질문 매칭이 안 되면 가장 최근 Q&A 사용 (기존 로직)
+            console.log(`📝 질문 매칭 실패, 최근 Q&A 사용`);
+            const latestQA = relatedQAs.sort((a, b) => {
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            })[0];
+            
+            return {
+                ...feedback,
+                question: latestQA.question,
+                answer: latestQA.answer,
+                qa_id: latestQA.id,
+                match_status: latestQA.match_status,
+                hasQAData: true,
+                qaCount: relatedQAs.length,
+                matchScore: 0
+            };
+        }
+        
+        console.log(`❌ Chat ID 매칭 실패`);
         return {
             ...feedback,
             question: feedback.question || '',
             answer: feedback.answer || '',
             hasQAData: false,
-            qaCount: 0
+            qaCount: 0,
+            matchScore: 0
         };
     });
 }
@@ -644,10 +723,16 @@ function displayFeedback(feedbackList) {
         const typeClass = feedback.feedback === 'positive' ? 'positive' : 'negative';
         const typeText = feedback.feedback === 'positive' ? '👍 도움됨' : '👎 아쉬움';
         
-        // 🔧 Q&A 연결 상태 표시
-        const qaStatus = feedback.hasQAData ? 
-            `<span style="color: #28a745; font-weight: 600;">✓ Q&A 연결됨 (${feedback.qaCount}건)</span>` : 
-            `<span style="color: #dc3545;">○ Q&A 미연결</span>`;
+        // 🔧 Q&A 연결 상태 표시 (매칭 점수 포함)
+        let qaStatus = '';
+        if (feedback.hasQAData) {
+            const matchInfo = feedback.matchScore > 0 ? 
+                `질문매칭 ${(feedback.matchScore * 100).toFixed(0)}%` : 
+                '최근Q&A';
+            qaStatus = `<span style="color: #28a745; font-weight: 600;">✓ Q&A 연결됨 (${feedback.qaCount}건, ${matchInfo})</span>`;
+        } else {
+            qaStatus = `<span style="color: #dc3545;">○ Q&A 미연결</span>`;
+        }
         
         // 🔧 매치 상태 표시
         let matchStatusText = '';
@@ -736,6 +821,8 @@ function showError(message, container = 'feedbackList') {
 // 이벤트
 document.addEventListener('DOMContentLoaded', async () => {
     await testApiConnection();
+    // 🔧 Q&A 데이터를 먼저 로드하고 나서 피드백 데이터 로드
+    await loadQAData();
     await refreshData();
 });
 document.getElementById('limitSelect').addEventListener('change', () => loadFeedback(currentFeedbackFilter));
