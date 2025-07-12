@@ -1,52 +1,67 @@
-// dashboard.js - 투어비스 통합 대시보드 JavaScript (main.py 연결 버전 - 수정됨)
+// dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용)
 
-// 설정 - main.py 서버 연결
-const API_BASE_URL = window.location.origin; // 현재 도메인과 동일한 서버 사용
+// 설정
+const API_BASE_URL = window.location.origin;
 
 let trendChart, avgChart, matchStatusChart, qaTimeChart;
 let currentFeedbackFilter = 'all';
 let allFeedbackData = [];
 
+// 연결 상태 업데이트 함수
+function updateConnectionStatus(isConnected, message = '') {
+    const statusElement = document.getElementById('connectionStatus');
+    const textElement = document.getElementById('connectionText');
+    
+    if (isConnected) {
+        statusElement.className = 'connection-status connected';
+        textElement.textContent = message || 'API 연결됨';
+    } else {
+        statusElement.className = 'connection-status disconnected';
+        textElement.textContent = message || 'API 연결 실패';
+    }
+}
+
 // API 연결 테스트
 async function testApiConnection() {
     try {
         console.log('🔍 API 연결 테스트 중...');
+        updateConnectionStatus(false, 'API 연결 확인 중...');
+        
         const response = await fetch(`${API_BASE_URL}/health`, {
             method: 'GET',
-            signal: AbortSignal.timeout(5000) // 5초 타임아웃
+            signal: AbortSignal.timeout(5000)
         });
         
         if (response.ok) {
             const data = await response.json();
             console.log('✅ API 연결 성공:', data);
+            updateConnectionStatus(true, `API 연결됨 (${data.service})`);
             return true;
         } else {
             console.error('❌ API 응답 오류:', response.status);
+            updateConnectionStatus(false, `API 오류: ${response.status}`);
             return false;
         }
     } catch (error) {
         console.error('❌ API 연결 실패:', error);
+        updateConnectionStatus(false, 'API 연결 실패');
         return false;
     }
 }
 
 // 탭 전환 함수
 function switchTab(tabName) {
-    // 모든 탭 내용 숨기기
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
     
-    // 모든 탭 버튼 비활성화
     document.querySelectorAll('.tab-button').forEach(button => {
         button.classList.remove('active');
     });
     
-    // 선택된 탭 활성화
     document.getElementById(tabName + 'Content').classList.add('active');
     document.getElementById(tabName + 'Tab').classList.add('active');
     
-    // 탭에 따른 초기 데이터 로드
     if (tabName === 'feedback') {
         refreshData();
     } else if (tabName === 'conversations') {
@@ -54,16 +69,14 @@ function switchTab(tabName) {
     }
 }
 
-// 🔧 수정된 API 호출 함수들 (main.py의 실제 엔드포인트 사용)
+// API 호출 함수들
 async function fetchStats(days = 7) {
     try {
         console.log(`📊 통계 데이터 요청: ${API_BASE_URL}/stats?days=${days}`);
         const response = await fetch(`${API_BASE_URL}/stats?days=${days}`, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            signal: AbortSignal.timeout(10000) // 10초 타임아웃
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(10000)
         });
         
         if (!response.ok) {
@@ -75,14 +88,13 @@ async function fetchStats(days = 7) {
         return data;
     } catch (error) {
         console.error('❌ 통계 데이터 로드 실패:', error);
-        
-        // 목업 데이터 반환
+        showError('통계 데이터를 불러올 수 없습니다.');
         return {
-            total_feedback: Math.floor(Math.random() * 100) + 50,
-            positive: Math.floor(Math.random() * 60) + 30,
-            negative: Math.floor(Math.random() * 30) + 10,
-            satisfaction_rate: Math.floor(Math.random() * 30) + 70,
-            unique_users: Math.floor(Math.random() * 40) + 20
+            total_feedback: 0,
+            positive: 0,
+            negative: 0,
+            satisfaction_rate: 0,
+            unique_users: 0
         };
     }
 }
@@ -92,10 +104,8 @@ async function fetchFeedback(limit = 50, feedback_type = 'all') {
         console.log(`📝 피드백 데이터 요청: ${API_BASE_URL}/admin/feedback?limit=${limit}&feedback_type=${feedback_type}`);
         const response = await fetch(`${API_BASE_URL}/admin/feedback?limit=${limit}&feedback_type=${feedback_type}`, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            signal: AbortSignal.timeout(10000) // 10초 타임아웃
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(10000)
         });
         
         if (!response.ok) {
@@ -107,131 +117,51 @@ async function fetchFeedback(limit = 50, feedback_type = 'all') {
         return data;
     } catch (error) {
         console.error('❌ 피드백 데이터 로드 실패:', error);
-        
-        // 목업 데이터 반환
+        showError('피드백 데이터를 불러올 수 없습니다.');
         return { 
-            feedback: generateMockFeedback(limit, feedback_type), 
-            total: limit 
+            feedback: [], 
+            total: 0 
         };
     }
 }
 
-// Q&A 대화 데이터 로드 함수들 (목업 데이터 사용)
+// Q&A 대화 데이터 로드 (아직 구현되지 않은 기능)
 async function fetchConversations(days = 7, limit = 50) {
     try {
-        console.log(`💬 Q&A 데이터 요청 시도 중...`);
-        // 아직 Q&A API가 완전히 구현되지 않았으므로 목업 데이터 사용
-        console.log('Q&A API는 목업 데이터를 사용합니다.');
+        console.log(`💬 Q&A 데이터 요청 시도...`);
+        // Q&A API는 아직 완전히 구현되지 않음
+        console.log('Q&A API는 현재 구현 중입니다.');
+        return {
+            conversations: [],
+            total: 0,
+            stats: {
+                total_conversations: 0,
+                unique_sessions: 0,
+                match_distribution: {
+                    good: 0,
+                    bad: 0,
+                    improve: 0,
+                    none: 0
+                }
+            }
+        };
     } catch (error) {
         console.error('Q&A API 호출 실패:', error);
-    }
-
-    // 목업 데이터 (실제 qa_conversations.jsonl 형식에 맞춤)
-    const mockData = generateMockConversations(days, limit);
-    return {
-        conversations: mockData,
-        total: mockData.length,
-        stats: {
-            total_conversations: mockData.length,
-            unique_sessions: new Set(mockData.map(c => c.session_id)).size,
-            match_distribution: {
-                good: mockData.filter(c => c.match_status === 1.0).length,
-                bad: mockData.filter(c => c.match_status === 0.0).length,
-                improve: mockData.filter(c => c.match_status === 0.5).length,
-                none: mockData.filter(c => !c.match_status).length
+        return {
+            conversations: [],
+            total: 0,
+            stats: {
+                total_conversations: 0,
+                unique_sessions: 0,
+                match_distribution: {
+                    good: 0,
+                    bad: 0,
+                    improve: 0,
+                    none: 0
+                }
             }
-        }
-    };
-}
-
-// 목업 피드백 데이터 생성
-function generateMockFeedback(limit = 20, type = 'all') {
-    const mockFeedbacks = [];
-    const questions = [
-        "체크인 시간이 언제인가요?",
-        "취소 수수료는 얼마인가요?",
-        "환불 처리는 얼마나 걸리나요?",
-        "무이자 할부가 가능한가요?",
-        "호텔 조식이 포함되나요?"
-    ];
-    
-    const answers = [
-        "호텔 체크인은 일반적으로 오후 3시부터 가능합니다.",
-        "취소 수수료는 예약 조건에 따라 다릅니다.",
-        "환불은 5-7 영업일 내에 처리됩니다.",
-        "대부분의 신용카드로 무이자 할부가 가능합니다.",
-        "호텔 조식 포함 여부는 상품페이지에서 확인 가능합니다."
-    ];
-    
-    for (let i = 0; i < limit; i++) {
-        const feedbackType = type === 'all' 
-            ? (Math.random() > 0.7 ? 'positive' : 'negative')
-            : type;
-        
-        const now = new Date();
-        const timestamp = new Date(now.getTime() - (Math.random() * 7 * 24 * 60 * 60 * 1000));
-        
-        mockFeedbacks.push({
-            feedback_id: `mock_${Date.now()}_${i}`,
-            chat_id: `user_mock_${Math.random().toString(36).substr(2, 8)}`,
-            client_ip: `192.168.1.${Math.floor(Math.random() * 255)}`,
-            user_agent: 'Mock Browser',
-            question: questions[Math.floor(Math.random() * questions.length)],
-            answer: answers[Math.floor(Math.random() * answers.length)],
-            feedback: feedbackType,
-            timestamp: timestamp.toISOString(),
-            processed_at: timestamp.toISOString()
-        });
+        };
     }
-    
-    return mockFeedbacks.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-}
-
-// 목업 Q&A 데이터 생성
-function generateMockConversations(days = 7, limit = 50) {
-    const questions = [
-        "체크인 시간이 언제인가요?",
-        "취소 수수료는 얼마인가요?",
-        "무료 취소는 언제까지 가능한가요?",
-        "항공료에 세금이 포함되어 있나요?",
-        "수하물 규정이 어떻게 되나요?",
-        "호텔 조식은 포함되어 있나요?",
-        "신용카드 무이자 할부가 가능한가요?",
-        "예약 확인은 어떻게 하나요?",
-        "비자는 어떻게 발급받나요?",
-        "환불은 언제 처리되나요?",
-        "좌석 선택이 가능한가요?",
-        "패키지 상품 할인이 있나요?",
-        "고객센터 연락처가 어떻게 되나요?",
-        "여행자 보험은 포함되어 있나요?",
-        "날짜 변경 수수료는 얼마인가요?"
-    ];
-
-    const mockConversations = [];
-    const now = new Date();
-    const matchStatuses = [1.0, 0.0, 0.5, null];
-
-    for (let i = 0; i < Math.min(limit, 100); i++) {
-        const daysAgo = Math.floor(Math.random() * days);
-        const timestamp = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
-        const chatId = `user_${Math.random().toString(36).substr(2, 8)}`;
-        const sessionId = `${chatId}_${timestamp.toISOString().split('T')[0].replace(/-/g, '')}`;
-        
-        const questionIndex = Math.floor(Math.random() * questions.length);
-        const question = questions[questionIndex];
-        
-        mockConversations.push({
-            id: `${chatId}_${Math.floor(timestamp.getTime() / 1000)}_${Math.floor(Math.random() * 10000)}`,
-            session_id: sessionId,
-            chat_id: chatId,
-            timestamp: timestamp.toISOString(),
-            question: question,
-            match_status: matchStatuses[Math.floor(Math.random() * matchStatuses.length)]
-        });
-    }
-
-    // 시간순 정렬 (최신 순)
-    return mockConversations.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 }
 
 // 피드백 데이터 새로고침
@@ -239,6 +169,9 @@ async function refreshData() {
     const days = parseInt(document.getElementById('daysSelect').value);
     
     try {
+        // 로딩 표시
+        document.getElementById('feedbackList').innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
+        
         // 통계 업데이트
         const stats = await fetchStats(days);
         updateStatsDisplay(stats);
@@ -282,7 +215,7 @@ function updateConversationStats(data) {
     const stats = data.stats || {};
     const conversations = data.conversations || [];
     
-    document.getElementById('totalConversations').textContent = stats.total_conversations || conversations.length;
+    document.getElementById('totalConversations').textContent = stats.total_conversations || 0;
     document.getElementById('totalSessions').textContent = stats.unique_sessions || 0;
     
     if (stats.match_distribution) {
@@ -290,29 +223,20 @@ function updateConversationStats(data) {
         document.getElementById('matchBad').textContent = stats.match_distribution.bad || 0;
         document.getElementById('matchImprove').textContent = stats.match_distribution.improve || 0;
     } else {
-        // 통계가 없는 경우 직접 계산
-        let matchGood = 0, matchBad = 0, matchImprove = 0;
-        conversations.forEach(conv => {
-            const status = conv.match_status;
-            if (status === 1.0) matchGood++;
-            else if (status === 0.0) matchBad++;
-            else if (status === 0.5) matchImprove++;
-        });
-        
-        document.getElementById('matchGood').textContent = matchGood;
-        document.getElementById('matchBad').textContent = matchBad;
-        document.getElementById('matchImprove').textContent = matchImprove;
+        document.getElementById('matchGood').textContent = 0;
+        document.getElementById('matchBad').textContent = 0;
+        document.getElementById('matchImprove').textContent = 0;
     }
 }
 
 // 차트 업데이트
 function updateCharts(stats, days) {
     // 기존 차트 파괴
-    if (trendChart) {
-        trendChart.destroy();
+    if (window.trendChart) {
+        window.trendChart.destroy();
     }
-    if (avgChart) {
-        avgChart.destroy();
+    if (window.avgChart) {
+        window.avgChart.destroy();
     }
 
     // 시간별 피드백 추이 차트
@@ -320,7 +244,7 @@ function updateCharts(stats, days) {
     const trendLabels = generateTimeLabels(days);
     const trendData = generateTrendData(stats, days);
 
-    trendChart = new Chart(trendCtx, {
+    window.trendChart = new Chart(trendCtx, {
         type: 'line',
         data: {
             labels: trendLabels,
@@ -361,7 +285,7 @@ function updateCharts(stats, days) {
 
     // 피드백 분포 차트
     const avgCtx = document.getElementById('avgChart').getContext('2d');
-    avgChart = new Chart(avgCtx, {
+    window.avgChart = new Chart(avgCtx, {
         type: 'doughnut',
         data: {
             labels: ['👍 도움됨', '👎 아쉬움'],
@@ -389,8 +313,8 @@ function updateConversationCharts(data) {
     const conversations = data.conversations || [];
     
     // 매치 상태 차트
-    if (matchStatusChart) {
-        matchStatusChart.destroy();
+    if (window.matchStatusChart) {
+        window.matchStatusChart.destroy();
     }
     
     const matchCtx = document.getElementById('matchStatusChart').getContext('2d');
@@ -404,7 +328,7 @@ function updateConversationCharts(data) {
         else noMatch++;
     });
     
-    matchStatusChart = new Chart(matchCtx, {
+    window.matchStatusChart = new Chart(matchCtx, {
         type: 'pie',
         data: {
             labels: ['매치⭕️', '매치✖️', '보강➡️', '미평가'],
@@ -426,19 +350,19 @@ function updateConversationCharts(data) {
         }
     });
 
-    // Q&A 시간 추이 차트 (간단한 예시)
-    if (qaTimeChart) {
-        qaTimeChart.destroy();
+    // Q&A 시간 추이 차트
+    if (window.qaTimeChart) {
+        window.qaTimeChart.destroy();
     }
     
     const timeCtx = document.getElementById('qaTimeChart').getContext('2d');
-    qaTimeChart = new Chart(timeCtx, {
+    window.qaTimeChart = new Chart(timeCtx, {
         type: 'bar',
         data: {
             labels: ['월', '화', '수', '목', '금', '토', '일'],
             datasets: [{
                 label: 'Q&A 수',
-                data: [12, 8, 15, 20, 18, 5, 3],
+                data: [0, 0, 0, 0, 0, 0, 0], // 실제 데이터가 없으므로 0으로 표시
                 backgroundColor: '#17a2b8',
                 borderColor: '#138496',
                 borderWidth: 1
@@ -483,15 +407,18 @@ function generateTimeLabels(days) {
     return labels;
 }
 
-// 추이 데이터 생성 (목업)
+// 추이 데이터 생성 (균등 분포)
 function generateTrendData(stats, days) {
     const positive = [];
     const negative = [];
     
-    // 간단한 랜덤 데이터 생성 (실제로는 API에서 일별 데이터를 가져와야 함)
+    // 균등하게 분포 (실제로는 API에서 일별 데이터를 가져와야 함)
+    const avgPositive = Math.floor((stats.positive || 0) / days);
+    const avgNegative = Math.floor((stats.negative || 0) / days);
+    
     for (let i = 0; i < days; i++) {
-        positive.push(Math.floor(Math.random() * (stats.positive / days * 2)) || 0);
-        negative.push(Math.floor(Math.random() * (stats.negative / days * 2)) || 0);
+        positive.push(avgPositive);
+        negative.push(avgNegative);
     }
     
     return { positive, negative };
@@ -527,7 +454,7 @@ function displayFeedback(feedbackList) {
     countElement.textContent = feedbackList.length + '개';
     
     if (feedbackList.length === 0) {
-        container.innerHTML = '<div class="error">표시할 피드백이 없습니다.</div>';
+        container.innerHTML = '<div class="error">표시할 피드백이 없습니다.<br><br>아직 수집된 피드백 데이터가 없거나 서버 연결에 문제가 있을 수 있습니다.</div>';
         return;
     }
     
@@ -631,7 +558,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (isConnected) {
         console.log('✅ API 연결 성공 - 실제 데이터 사용');
     } else {
-        console.log('⚠️ API 연결 실패 - 목업 데이터 사용');
+        console.log('⚠️ API 연결 실패');
     }
     
     // 초기 데이터 로드
@@ -651,39 +578,22 @@ document.getElementById('conversationDaysSelect').addEventListener('change', fun
     refreshConversationData();
 });
 
-// 성능 모니터링
-function measurePerformance(name, fn) {
-    return async function(...args) {
-        const start = performance.now();
-        const result = await fn.apply(this, args);
-        const end = performance.now();
-        console.log(`${name} 실행 시간: ${(end - start).toFixed(2)}ms`);
-        return result;
-    };
-}
-
-// 성능 최적화된 함수들로 래핑
-const optimizedRefreshData = measurePerformance('피드백 데이터 새로고침', refreshData);
-const optimizedRefreshConversationData = measurePerformance('Q&A 데이터 새로고침', refreshConversationData);
-
 // 키보드 단축키 지원
 document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + R: 현재 탭 새로고침
     if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
         const activeTab = document.querySelector('.tab-button.active').id;
         
         switch(activeTab) {
             case 'feedbackTab':
-                optimizedRefreshData();
+                refreshData();
                 break;
             case 'conversationsTab':
-                optimizedRefreshConversationData();
+                refreshConversationData();
                 break;
         }
     }
     
-    // Ctrl/Cmd + 1,2: 탭 전환
     if ((e.ctrlKey || e.metaKey) && ['1', '2'].includes(e.key)) {
         e.preventDefault();
         const tabMap = {
@@ -694,122 +604,9 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// 자동 새로고침 기능 (옵션)
-let autoRefreshInterval = null;
-
-function startAutoRefresh(minutes = 5) {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
-    
-    autoRefreshInterval = setInterval(() => {
-        const activeTab = document.querySelector('.tab-button.active').id;
-        console.log(`자동 새로고침: ${activeTab}`);
-        
-        switch(activeTab) {
-            case 'feedbackTab':
-                optimizedRefreshData();
-                break;
-            case 'conversationsTab':
-                optimizedRefreshConversationData();
-                break;
-        }
-    }, minutes * 60 * 1000);
-    
-    console.log(`자동 새로고침 시작: ${minutes}분마다`);
-}
-
-function stopAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null;
-        console.log('자동 새로고침 중지');
-    }
-}
-
-// 페이지 가시성 API를 이용한 최적화
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        // 페이지가 숨겨지면 자동 새로고침 중지
-        if (autoRefreshInterval) {
-            console.log('페이지 숨김: 자동 새로고침 일시 중지');
-        }
-    } else {
-        // 페이지가 다시 보이면 즉시 새로고침
-        console.log('페이지 복원: 데이터 새로고침');
-        const activeTab = document.querySelector('.tab-button.active').id;
-        
-        switch(activeTab) {
-            case 'feedbackTab':
-                optimizedRefreshData();
-                break;
-            case 'conversationsTab':
-                optimizedRefreshConversationData();
-                break;
-        }
-    }
-});
-
-// 브라우저 지원 체크
-function checkBrowserSupport() {
-    const features = {
-        fetch: 'fetch' in window,
-        promises: 'Promise' in window,
-        localStorage: 'localStorage' in window,
-        canvas: 'getContext' in document.createElement('canvas'),
-        es6: (() => {
-            try {
-                eval('const test = () => {};');
-                return true;
-            } catch (e) {
-                return false;
-            }
-        })()
-    };
-    
-    const unsupported = Object.entries(features).filter(([key, supported]) => !supported);
-    
-    if (unsupported.length > 0) {
-        console.warn('지원되지 않는 브라우저 기능:', unsupported.map(([key]) => key));
-        showError(`이 브라우저는 일부 기능을 지원하지 않습니다: ${unsupported.map(([key]) => key).join(', ')}`);
-    } else {
-        console.log('✅ 모든 브라우저 기능이 지원됩니다.');
-    }
-    
-    return unsupported.length === 0;
-}
-
-// 데이터 내보내기 함수
-function exportData(type) {
-    let data, filename;
-    
-    if (type === 'feedback') {
-        data = allFeedbackData;
-        filename = 'feedback_data.json';
-    } else {
-        console.error('Unknown export type:', type);
-        return;
-    }
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-// 초기화 완료 로그
-console.log('🚀 투어비스 통합 대시보드 초기화 완료 (main.py 연결 버전)');
+console.log('🚀 투어비스 통합 대시보드 초기화 완료 (실제 API 전용)');
 console.log('📊 사용 가능한 기능:');
-console.log('- 피드백 분석 및 시각화');
-console.log('- Q&A 통계 분석');
+console.log('- 실제 피드백 데이터 분석 및 시각화');
 console.log('- 실시간 통계');
 console.log('- 키보드 단축키 (Ctrl+R: 새로고침, Ctrl+1,2: 탭 전환)');
 console.log(`- API 연결: ${API_BASE_URL}`);
-
-// 브라우저 지원 체크
-checkBrowserSupport();
