@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 통합 대시보드 mrk2</title>
+    <title>투어비스 통합 대시보드</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -630,46 +630,6 @@
             transform: translateY(-2px);
         }
 
-        /* Q&A 대화 스타일 */
-        .qa-conversation {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            margin-top: 10px;
-            padding: 15px;
-        }
-
-        .qa-conversation h4 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-            font-size: 0.9rem;
-        }
-
-        .conversation-item {
-            background: white;
-            border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 8px;
-            border-left: 3px solid #17a2b8;
-        }
-
-        .conversation-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .conversation-q {
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 5px;
-            font-size: 0.85rem;
-        }
-
-        .conversation-a {
-            color: #495057;
-            font-size: 0.8rem;
-            line-height: 1.4;
-        }
-
         @media (max-width: 768px) {
             .chart-section {
                 grid-template-columns: 1fr;
@@ -924,4 +884,64 @@
                     <div class="value" id="matchGood">0</div>
                 </div>
                 <div class="stat-card negative">
-                    <h3>매치✖️</h3
+                    <h3>매치✖️</h3>
+                    <div class="value" id="matchBad">0</div>
+                </div>
+                <div class="stat-card satisfaction">
+                    <h3>보강➡️</h3>
+                    <div class="value" id="matchImprove">0</div>
+                </div>
+            </div>
+
+            <div class="chart-section">
+                <div class="chart-container">
+                    <h3>📊 매치 상태별 분포</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="matchStatusChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>📈 일별 Q&A 추이</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="qaTimeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="data-list">
+                <h3>💬 Q&A 대화 목록</h3>
+                <div class="data-header">
+                    <div class="data-filters">
+                        <button onclick="loadConversations('all')" id="allConvBtn" class="active">전체</button>
+                        <button onclick="loadConversations('match_good')" id="matchGoodBtn">매치⭕️</button>
+                        <button onclick="loadConversations('match_improve')" id="matchImproveBtn">보강➡️</button>
+                        <button onclick="loadConversations('no_match')" id="noMatchBtn">미평가</button>
+                    </div>
+                    <div class="data-controls">
+                        <div class="control-group">
+                            <label>표시 개수:</label>
+                            <select id="conversationLimitSelect">
+                                <option value="20">20개</option>
+                                <option value="50" selected>50개</option>
+                                <option value="100">100개</option>
+                                <option value="200">200개</option>
+                            </select>
+                        </div>
+                        <button onclick="expandAllConversations()" class="expand-all-btn">📖 모두 펼치기</button>
+                        <button onclick="collapseAllConversations()" class="collapse-all-btn">📋 모두 접기</button>
+                        <div class="data-info">
+                            <span id="conversationsCount">0개</span> 표시 중
+                        </div>
+                    </div>
+                </div>
+                <div id="conversationsList">
+                    <div class="loading">Q&A 대화 데이터를 불러오는 중...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 파일 로드 -->
+    <script src="dashboard.js"></script>
+</body>
+</html>
