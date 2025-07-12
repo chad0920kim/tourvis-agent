@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 통합 대시보드</title>
+    <title>투어비스 통합 대시보드 (mrk1)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -205,6 +205,7 @@
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             border: 1px solid #e9ecef;
             transition: transform 0.3s ease;
+            position: relative;
         }
 
         .stat-card:hover {
@@ -230,6 +231,23 @@
         .total .value { color: #667eea; }
         .users .value { color: #fd7e14; }
         .satisfaction .value { color: #20c997; }
+        .participation .value { color: #ff6b35; }
+
+        /* 🔧 사용자 참여도 카드 스타일 */
+        .participation-info {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 8px;
+            line-height: 1.3;
+            border-top: 1px solid #eee;
+            padding-top: 8px;
+        }
+
+        .participation-subtitle {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 4px;
+        }
 
         .chart-section {
             display: grid;
@@ -600,7 +618,7 @@
         </div>
 
         <div class="header">
-            <h1>🚀 투어비스 통합 대시보드</h1>
+            <h1>🚀 투어비스 통합 대시보드 (mrk1)</h1>
             <p>고객 피드백 및 Q&A 통계 분석</p>
         </div>
 
@@ -647,6 +665,16 @@
                 <div class="stat-card users">
                     <h3>피드백 응답자</h3>
                     <div class="value" id="uniqueUsers">0</div>
+                </div>
+                <div class="stat-card participation">
+                    <h3>사용자 참여도</h3>
+                    <div class="value" id="participationRate">0.00회</div>
+                    <div class="participation-info">
+                        <div class="participation-subtitle">
+                            평균 사용자당 피드백 횟수<br>
+                            (중복 피드백 제공자 포함)
+                        </div>
+                    </div>
                 </div>
                 <div class="stat-card satisfaction">
                     <h3>만족도</h3>
