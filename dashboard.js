@@ -433,10 +433,11 @@ async function refreshData() {
 }
 
 async function refreshConversationData() {
-    const days = parseInt(document.getElementById('conversationDaysSelect').value);
-    const data = await fetchConversations(days, 100);
-    updateConversationStats(data);
-    updateConversationCharts(data);
+  const days = parseInt(document.getElementById('conversationDaysSelect').value);
+  const data = await fetchConversations(days, 100);
+
+  updateConversationStats(data);  // 이 호출에서 stats fallback 처리
+  updateConversationCharts(data); // 동일 data로 차트 그려서 일치
 }
 
 // 통계 UI 업데이트
@@ -468,20 +469,21 @@ function updateConversationStats(data) {
 
   // ✅ Fallback: stats가 없으면 conversations로 직접 계산
   if (!stats || !stats.match_distribution) {
-    const conversations = data.conversations || [];
-    stats = {
-      total_conversations: conversations.length,
-      unique_sessions: new Set(conversations.map(conv => conv.session_id)).size,
-      match_distribution: { good: 0, bad: 0, improve: 0 }
-    };
+  const conversations = data.conversations || [];
+  stats = {
+    total_conversations: conversations.length,
+    unique_sessions: new Set(conversations.map(conv => conv.session_id)).size,
+    match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }  // ✅ none 추가!
+  };
 
-    conversations.forEach(conv => {
-      const status = conv.match_status;
-      if (status === 1.0) stats.match_distribution.good++;
-      else if (status === 0.0) stats.match_distribution.bad++;
-      else if (status === 0.5) stats.match_distribution.improve++;
-    });
-  }
+  conversations.forEach(conv => {
+    const status = conv.match_status;
+    if (status === 1.0) stats.match_distribution.good++;
+    else if (status === 0.0) stats.match_distribution.bad++;
+    else if (status === 0.5) stats.match_distribution.improve++;
+    else stats.match_distribution.none++;   // ✅ none 카운트!
+  });
+}
 
   // ✅ 동기화 출력
   document.getElementById('totalConversations').textContent = stats.total_conversations || 0;
