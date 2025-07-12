@@ -81,7 +81,7 @@
             border-radius: 10px;
             transition: all 0.3s ease;
             flex: 1;
-            max-width: 250px;
+            max-width: 300px;
         }
 
         .tab-button:hover {
@@ -346,10 +346,6 @@
             border-left-color: #dc3545;
         }
 
-        .data-item.qa-item {
-            border-left-color: #17a2b8;
-        }
-
         .data-meta {
             display: flex;
             justify-content: space-between;
@@ -374,11 +370,6 @@
         .data-type.negative {
             background: #f8d7da;
             color: #721c24;
-        }
-
-        .data-type.qa {
-            background: #d1ecf1;
-            color: #0c5460;
         }
 
         .data-content {
@@ -469,97 +460,6 @@
         .match-status.match-improve {
             background: #fff3cd;
             color: #856404;
-        }
-
-        /* 검색 관련 스타일 */
-        .search-container {
-            margin-bottom: 20px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .search-input {
-            flex: 1;
-            min-width: 200px;
-            padding: 10px 15px;
-            border: 2px solid #667eea;
-            border-radius: 25px;
-            font-size: 14px;
-            outline: none;
-            transition: all 0.3s ease;
-        }
-
-        .search-input:focus {
-            border-color: #564ba2;
-            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
-        }
-
-        .search-btn {
-            padding: 10px 20px;
-            background: linear-gradient(45deg, #17a2b8, #20c997);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .search-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
-        }
-
-        .clear-search-btn {
-            padding: 8px 16px;
-            background: #6c757d;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.85rem;
-        }
-
-        .clear-search-btn:hover {
-            background: #5a6268;
-        }
-
-        /* 단어 빈도 차트 스타일 */
-        .word-frequency-section {
-            margin-bottom: 40px;
-        }
-
-        .word-frequency-container {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            height: 400px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .word-frequency-container h3 {
-            text-align: center;
-            color: #2c3e50;
-            margin-bottom: 20px;
-            font-size: 1.3rem;
-        }
-
-        .word-frequency-chart {
-            flex: 1;
-            position: relative;
-        }
-
-        /* 하이라이트 스타일 */
-        mark {
-            background: #fff3cd;
-            color: #856404;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-weight: 600;
         }
 
         .loading {
@@ -664,15 +564,6 @@
             .tab-buttons {
                 flex-direction: column;
             }
-
-            .search-container {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-input {
-                min-width: auto;
-            }
         }
     </style>
 </head>
@@ -680,20 +571,17 @@
     <div class="container">
         <div class="header">
             <h1>🚀 투어비스 통합 대시보드</h1>
-            <p>고객 피드백 및 Q&A 대화 분석</p>
+            <p>고객 피드백 및 Q&A 통계 분석</p>
         </div>
 
-        <!-- 탭 버튼 -->
+        <!-- 탭 버튼 (검색어 분석 제거) -->
         <div class="tab-container">
             <div class="tab-buttons">
                 <button class="tab-button active" onclick="switchTab('feedback')" id="feedbackTab">
                     📊 피드백 분석
                 </button>
-                <button class="tab-button" onclick="switchTab('questions')" id="questionsTab">
-                    🔍 검색어 분석
-                </button>
                 <button class="tab-button" onclick="switchTab('conversations')" id="conversationsTab">
-                    💬 Q&A 대화 분석
+                    💬 Q&A 통계 분석
                 </button>
             </div>
         </div>
@@ -744,7 +632,7 @@
                     </div>
                 </div>
                 <div class="chart-container">
-                    <h3>📈 응답자별 평균 피드백 추이</h3>
+                    <h3>📈 피드백 분포</h3>
                     <div class="chart-wrapper">
                         <canvas id="avgChart"></canvas>
                     </div>
@@ -783,79 +671,7 @@
             </div>
         </div>
 
-        <!-- 검색어 탭 내용 -->
-        <div id="questionsContent" class="tab-content">
-            <div class="top-controls">
-                <div class="control-group">
-                    <label>분석 기간:</label>
-                    <select id="questionDaysSelect">
-                        <option value="1">오늘</option>
-                        <option value="7" selected>최근 7일</option>
-                        <option value="30">최근 30일</option>
-                        <option value="90">최근 90일</option>
-                    </select>
-                </div>
-                <button onclick="refreshQuestionData()">🔄 새로고침</button>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card total">
-                    <h3>총 검색어</h3>
-                    <div class="value" id="totalQuestions">0</div>
-                </div>
-                <div class="stat-card users">
-                    <h3>평균 길이</h3>
-                    <div class="value" id="avgLength">0</div>
-                </div>
-                <div class="stat-card positive">
-                    <h3>평균 단어수</h3>
-                    <div class="value" id="avgWordCount">0</div>
-                </div>
-                <div class="stat-card satisfaction">
-                    <h3>고유 단어</h3>
-                    <div class="value" id="uniqueWords">0</div>
-                </div>
-            </div>
-
-            <div class="word-frequency-section">
-                <div class="word-frequency-container">
-                    <h3>🏷️ 인기 검색 키워드</h3>
-                    <div class="word-frequency-chart">
-                        <canvas id="wordFrequencyChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div class="data-list">
-                <h3>🔍 검색어 목록</h3>
-                <div class="data-header">
-                    <div class="search-container">
-                        <input type="text" id="searchInput" class="search-input" placeholder="검색어를 입력하세요..." />
-                        <button onclick="searchQuestions()" class="search-btn">🔍 검색</button>
-                        <button onclick="clearSearch()" class="clear-search-btn">✖ 초기화</button>
-                    </div>
-                    <div class="data-controls">
-                        <div class="control-group">
-                            <label>표시 개수:</label>
-                            <select id="questionLimitSelect">
-                                <option value="20">20개</option>
-                                <option value="50" selected>50개</option>
-                                <option value="100">100개</option>
-                                <option value="200">200개</option>
-                            </select>
-                        </div>
-                        <div class="data-info">
-                            <span id="questionsCount">0개</span> 표시 중
-                        </div>
-                    </div>
-                </div>
-                <div id="questionsList">
-                    <div class="loading">검색어 데이터를 불러오는 중...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Q&A 대화 탭 내용 -->
+        <!-- Q&A 통계 분석 탭 내용 (Q&A 목록 제거) -->
         <div id="conversationsContent" class="tab-content">
             <div class="top-controls">
                 <div class="control-group">
@@ -905,37 +721,6 @@
                     <div class="chart-wrapper">
                         <canvas id="qaTimeChart"></canvas>
                     </div>
-                </div>
-            </div>
-
-            <div class="data-list">
-                <h3>💬 Q&A 대화 목록</h3>
-                <div class="data-header">
-                    <div class="data-filters">
-                        <button onclick="loadConversations('all')" id="allConvBtn" class="active">전체</button>
-                        <button onclick="loadConversations('match_good')" id="matchGoodBtn">매치⭕️</button>
-                        <button onclick="loadConversations('match_improve')" id="matchImproveBtn">보강➡️</button>
-                        <button onclick="loadConversations('no_match')" id="noMatchBtn">미평가</button>
-                    </div>
-                    <div class="data-controls">
-                        <div class="control-group">
-                            <label>표시 개수:</label>
-                            <select id="conversationLimitSelect">
-                                <option value="20">20개</option>
-                                <option value="50" selected>50개</option>
-                                <option value="100">100개</option>
-                                <option value="200">200개</option>
-                            </select>
-                        </div>
-                        <button onclick="expandAllConversations()" class="expand-all-btn">📖 모두 펼치기</button>
-                        <button onclick="collapseAllConversations()" class="collapse-all-btn">📋 모두 접기</button>
-                        <div class="data-info">
-                            <span id="conversationsCount">0개</span> 표시 중
-                        </div>
-                    </div>
-                </div>
-                <div id="conversationsList">
-                    <div class="loading">Q&A 대화 데이터를 불러오는 중...</div>
                 </div>
             </div>
         </div>
