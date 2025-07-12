@@ -1,4 +1,4 @@
-// dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용) - mrk1
+// dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용) - mrk2
 
 // 설정 - Goorm 공개 도메인 사용
 const API_BASE_URL = window.location.hostname === 'chad0920kim.github.io' 
@@ -7,9 +7,11 @@ const API_BASE_URL = window.location.hostname === 'chad0920kim.github.io'
 
 console.log(`🔗 Dashboard API URL (Goorm): ${API_BASE_URL}`);
 
-let trendChart, avgChart, matchStatusChart, qaTimeChart;
+let trendChart, avgChart, matchStatusChart, qaTimeChart, responseRateChart;
 let currentFeedbackFilter = 'all';
 let allFeedbackData = [];
+let allQAData = [];
+let currentStats = {};
 
 // 연결 상태 업데이트 함수
 function updateConnectionStatus(isConnected, message = '') {
@@ -301,11 +303,13 @@ async function loadQAData() {
     try {
         const data = await fetchConversations(30, 1000); // 최근 30일, 최대 1000개
         globalQAData = data.conversations || [];
+        allQAData = globalQAData; // 전역 저장
         console.log(`✅ Q&A 데이터 로드 완료: ${globalQAData.length}개`);
         return globalQAData;
     } catch (error) {
         console.warn('⚠️ Q&A 데이터 로드 실패:', error);
         globalQAData = [];
+        allQAData = [];
         return [];
     }
 }
@@ -357,14 +361,70 @@ async function fetchConversations(days = 7, limit = 50) {
     };
 }
 
+// 응답률 계산 함수
+function calculateResponseRate(feedbackCount, qaCount) {
+    if (qaCount === 0) return 0;
+    return Math.round((feedbackCount / qaCount) * 100);
+}
+
+// 기간별 응답률 데이터 생성
+function generateResponseRateData(feedbackData, qaData, days) {
+    const responseRates = [];
+    const now = new Date();
+    
+    for (let i = days - 1; i >= 0; i--) {
+        const targetDate = new Date(now);
+        targetDate.setDate(targetDate.getDate() - i);
+        const dateStr = targetDate.toDateString();
+        
+        // 해당 날짜의 피드백과 Q&A 수 계산
+        const dayFeedback = feedbackData.filter(fb => {
+            const fbDate = new Date(fb.timestamp);
+            return fbDate.toDateString() === dateStr;
+        }).length;
+        
+        const dayQA = qaData.filter(qa => {
+            const qaDate = new Date(qa.timestamp);
+            return qaDate.toDateString() === dateStr;
+        }).length;
+        
+        const responseRate = calculateResponseRate(dayFeedback, dayQA);
+        responseRates.push(responseRate);
+    }
+    
+    return responseRates;
+}
+
 // 새로고침
 async function refreshData() {
     const days = parseInt(document.getElementById('daysSelect').value);
     try {
         document.getElementById('feedbackList').innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
-        const stats = await fetchStats(days);
-        updateStatsDisplay(stats);
-        updateCharts(stats, days);
+        
+        // 데이터 로드
+        const [stats, qaData] = await Promise.all([
+            fetchStats(days),
+            globalQAData.length > 0 ? Promise.resolve({conversations: globalQAData}) : fetchConversations(days, 1000)
+        ]);
+        
+        // Q&A 데이터 업데이트
+        if (qaData.conversations) {
+            allQAData = qaData.conversations;
+        }
+        
+        // 응답률 계산
+        const totalQA = allQAData.length;
+        const responseRate = calculateResponseRate(stats.total_feedback, totalQA);
+        
+        // 통합 통계 객체 생성
+        currentStats = {
+            ...stats,
+            total_qa: totalQA,
+            response_rate: responseRate
+        };
+        
+        updateStatsDisplay(currentStats);
+        updateCharts(currentStats, days);
         await loadFeedback(currentFeedbackFilter);
     } catch (error) {
         console.error('데이터 새로고침 실패:', error);
@@ -386,6 +446,10 @@ function updateStatsDisplay(stats) {
     document.getElementById('negativeFeedback').textContent = stats.negative || 0;
     document.getElementById('uniqueUsers').textContent = stats.unique_users || 0;
     document.getElementById('satisfactionRate').textContent = (stats.satisfaction_rate || 0) + '%';
+    
+    // Q&A 관련 통계 업데이트
+    document.getElementById('totalQA').textContent = stats.total_qa || 0;
+    document.getElementById('responseRate').textContent = (stats.response_rate || 0) + '%';
     
     // 사용자 참여도 계산 및 표시
     const participationRate = stats.unique_users > 0 
@@ -413,6 +477,7 @@ function updateCharts(stats, days) {
     // 기존 차트 파괴
     if (trendChart) trendChart.destroy();
     if (avgChart) avgChart.destroy();
+    if (responseRateChart) responseRateChart.destroy();
 
     // 시간별 피드백 추이 차트
     const trendCtx = document.getElementById('trendChart').getContext('2d');
@@ -477,6 +542,45 @@ function updateCharts(stats, days) {
             plugins: {
                 legend: {
                     position: 'bottom',
+                }
+            }
+        }
+    });
+
+    // 응답률 추이 차트 (새로 추가)
+    const responseCtx = document.getElementById('responseRateChart').getContext('2d');
+    const responseRateData = generateResponseRateData(allFeedbackData, allQAData, days);
+    
+    responseRateChart = new Chart(responseCtx, {
+        type: 'bar',
+        data: {
+            labels: trendLabels,
+            datasets: [{
+                label: '피드백 응답률 (%)',
+                data: responseRateData,
+                backgroundColor: '#17a2b8',
+                borderColor: '#138496',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        stepSize: 10,
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
                 }
             }
         }
@@ -688,67 +792,3 @@ function displayFeedback(feedbackList) {
                 </div>
             </div>
         `;
-    }).join('');
-    
-    container.innerHTML = html;
-}
-
-// 답변 토글 함수
-function toggleAnswer(index) {
-    const answer = document.getElementById(`answer_${index}`);
-    const toggleText = document.getElementById(`toggle_text_${index}`);
-    
-    if (answer.classList.contains('collapsed')) {
-        answer.classList.remove('collapsed');
-        toggleText.textContent = '접기';
-    } else {
-        answer.classList.add('collapsed');
-        toggleText.textContent = '더보기';
-    }
-}
-
-// 모든 답변 펼치기/접기
-function expandAllAnswers() {
-    document.querySelectorAll('#feedbackList .answer').forEach(answer => {
-        answer.classList.remove('collapsed');
-    });
-    document.querySelectorAll('#feedbackList .expand-toggle span').forEach(span => {
-        span.textContent = '접기';
-    });
-}
-
-function collapseAllAnswers() {
-    document.querySelectorAll('#feedbackList .answer').forEach(answer => {
-        answer.classList.add('collapsed');
-    });
-    document.querySelectorAll('#feedbackList .expand-toggle span').forEach(span => {
-        span.textContent = '더보기';
-    });
-}
-
-// 에러 표시
-function showError(message, container = 'feedbackList') {
-    const el = document.getElementById(container);
-    if (el) el.innerHTML = `<div class="error">${message}</div>`;
-}
-
-// Events
-document.addEventListener('DOMContentLoaded', async () => {
-    await testApiConnection();
-    // Load QA data first, then load feedback data
-    await loadQAData();
-    await refreshData();
-});
-
-document.getElementById('limitSelect').addEventListener('change', () => loadFeedback(currentFeedbackFilter));
-document.getElementById('daysSelect').addEventListener('change', refreshData);
-document.getElementById('conversationDaysSelect').addEventListener('change', refreshConversationData);
-
-document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-        e.preventDefault();
-        refreshData();
-    }
-});
-
-console.log(`🚀 투어비스 통합 대시보드 초기화 완료 (mrk1)`);
