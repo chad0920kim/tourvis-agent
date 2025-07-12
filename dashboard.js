@@ -1,7 +1,11 @@
 // dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용)
 
-// 설정
-const API_BASE_URL = window.location.origin;
+// 설정 - GitHub Pages에서 로컬 서버로 직접 연결
+const API_BASE_URL = window.location.hostname === 'chad0920kim.github.io' 
+    ? 'http://localhost:8080'  // GitHub Pages에서는 로컬 서버 직접 지정
+    : window.location.origin;  // 로컬에서는 현재 도메인 사용
+
+console.log(`🔗 API Base URL: ${API_BASE_URL}`);
 
 let trendChart, avgChart, matchStatusChart, qaTimeChart;
 let currentFeedbackFilter = 'all';
@@ -111,7 +115,6 @@ async function fetchStats(days = 7) {
                 console.log('✅ 통계 데이터 수신:', data);
                 return data;
             } else if (response.status !== 404) {
-                // 404가 아닌 다른 오류는 로그에 기록
                 console.warn(`⚠️ ${endpoint} 응답 오류: ${response.status}`);
             }
         } catch (error) {
@@ -121,8 +124,14 @@ async function fetchStats(days = 7) {
         }
     }
 
-    console.log('📊 API 연결 실패 - 데모 데이터 사용');
-    return generateDemoStats(days);
+    console.log('📊 API 연결 실패 - 빈 데이터 반환');
+    return {
+        total_feedback: 0,
+        positive: 0,
+        negative: 0,
+        satisfaction_rate: 0,
+        unique_users: 0
+    };
 }
 
 // 피드백 데이터 (개선된 오류 처리)
