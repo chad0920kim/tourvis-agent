@@ -178,11 +178,11 @@ function enrichFeedbackWithQA(feedbackData, qaData) {
     console.log('📝 피드백 데이터 수:', feedbackData.length);
     console.log('💬 Q&A 데이터 수:', qaData.length);
     
-    // 문자열 유사도 계산 함수 (간단한 Levenshtein distance 기반)
+    // String similarity calculation function (simple Levenshtein distance based)
     function similarity(str1, str2) {
         if (!str1 || !str2) return 0;
         
-        // 정규화: 공백, 특수문자 제거, 소문자 변환
+        // Normalize: remove spaces, special characters, convert to lowercase
         const normalize = (s) => s.replace(/[\s\W]/g, '').toLowerCase();
         const s1 = normalize(str1);
         const s2 = normalize(str2);
@@ -190,12 +190,12 @@ function enrichFeedbackWithQA(feedbackData, qaData) {
         if (s1 === s2) return 1.0;
         if (s1.length === 0 || s2.length === 0) return 0;
         
-        // 포함 관계 확인
+        // Check inclusion relationship
         if (s1.includes(s2) || s2.includes(s1)) {
             return Math.max(s2.length / s1.length, s1.length / s2.length) * 0.8;
         }
         
-        // 간단한 편집 거리 계산
+        // Simple edit distance calculation
         const matrix = [];
         for (let i = 0; i <= s2.length; i++) {
             matrix[i] = [i];
@@ -234,7 +234,7 @@ function enrichFeedbackWithQA(feedbackData, qaData) {
             let bestMatch = null;
             let bestScore = 0;
             
-            // 🔧 피드백에 원본 질문이 있으면 그것과 매칭
+            // If feedback has original question, match with that
             if (feedback.question && feedback.question.trim()) {
                 console.log(`📝 피드백 질문: "${feedback.question}"`);
                 
@@ -242,7 +242,7 @@ function enrichFeedbackWithQA(feedbackData, qaData) {
                     const score = similarity(feedback.question, qa.question);
                     console.log(`💬 Q&A 질문: "${qa.question?.substring(0, 30)}..." - 유사도: ${score.toFixed(3)}`);
                     
-                    if (score > bestScore && score > 0.7) { // 70% 이상 유사할 때만
+                    if (score > bestScore && score > 0.7) { // Only when similarity > 70%
                         bestScore = score;
                         bestMatch = qa;
                     }
@@ -265,7 +265,7 @@ function enrichFeedbackWithQA(feedbackData, qaData) {
                 }
             }
             
-            // 🔧 질문 매칭이 안 되면 가장 최근 Q&A 사용 (기존 로직)
+            // If question matching fails, use most recent QA (existing logic)
             console.log(`📝 질문 매칭 실패, 최근 Q&A 사용`);
             const latestQA = relatedQAs.sort((a, b) => {
                 return new Date(b.timestamp) - new Date(a.timestamp);
