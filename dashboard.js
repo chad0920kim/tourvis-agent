@@ -1,11 +1,11 @@
 // dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용)
 
-// 설정 - GitHub Pages에서 로컬 서버로 직접 연결
+// 설정 - 대시보드 전용 서버 사용 (포트 8505)
 const API_BASE_URL = window.location.hostname === 'chad0920kim.github.io' 
-    ? 'http://localhost:8080'  // GitHub Pages에서는 로컬 서버 직접 지정
-    : window.location.origin;  // 로컬에서는 현재 도메인 사용
+    ? 'http://localhost:8505'  // 대시보드 전용 포트 8505
+    : 'http://localhost:8505';  // 로컬에서도 8505 포트 사용
 
-console.log(`🔗 API Base URL: ${API_BASE_URL}`);
+console.log(`🔗 Dashboard API URL: ${API_BASE_URL}`);
 
 let trendChart, avgChart, matchStatusChart, qaTimeChart;
 let currentFeedbackFilter = 'all';
