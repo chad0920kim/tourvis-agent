@@ -12,6 +12,8 @@ let currentFeedbackFilter = 'all';
 let allFeedbackData = [];
 let allQAData = [];
 let currentStats = {};
+let globalConversationStats = {};
+let globalConversations = [];
 
 // 연결 상태 업데이트 함수
 function updateConnectionStatus(isConnected, message = '') {
@@ -467,31 +469,33 @@ function updateStatsDisplay(stats) {
 function updateConversationStats(data) {
   let stats = data.stats;
 
-  // ✅ Fallback: stats가 없으면 conversations로 직접 계산
   if (!stats || !stats.match_distribution) {
-  const conversations = data.conversations || [];
-  stats = {
-    total_conversations: conversations.length,
-    unique_sessions: new Set(conversations.map(conv => conv.session_id)).size,
-    match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }  // ✅ none 추가!
-  };
+    const conversations = data.conversations || [];
+    stats = {
+      total_conversations: conversations.length,
+      unique_sessions: new Set(conversations.map(conv => conv.session_id)).size,
+      match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }
+    };
 
-  conversations.forEach(conv => {
-    const status = conv.match_status;
-    if (status === 1.0) stats.match_distribution.good++;
-    else if (status === 0.0) stats.match_distribution.bad++;
-    else if (status === 0.5) stats.match_distribution.improve++;
-    else stats.match_distribution.none++;   // ✅ none 카운트!
-  });
-}
+    conversations.forEach(conv => {
+      const status = conv.match_status;
+      if (status === 1.0 || status === '1.0') stats.match_distribution.good++;
+      else if (status === 0.0 || status === '0.0') stats.match_distribution.bad++;
+      else if (status === 0.5 || status === '0.5') stats.match_distribution.improve++;
+      else stats.match_distribution.none++;
+    });
+  }
 
-  // ✅ 동기화 출력
+  globalConversationStats = stats;
+  globalConversations = data.conversations || [];
+
   document.getElementById('totalConversations').textContent = stats.total_conversations || 0;
   document.getElementById('totalSessions').textContent = stats.unique_sessions || 0;
   document.getElementById('matchGood').textContent = stats.match_distribution.good || 0;
   document.getElementById('matchBad').textContent = stats.match_distribution.bad || 0;
   document.getElementById('matchImprove').textContent = stats.match_distribution.improve || 0;
 }
+
 
 
 
@@ -610,8 +614,8 @@ function updateCharts(stats, days) {
     });
 }
 
-function updateConversationCharts(data) {
-    const conversations = data.conversations || [];
+function updateConversationCharts() {
+  const conversations = globalConversations || [];
     
     // 매치 상태 차트
     if (matchStatusChart) matchStatusChart.destroy();
