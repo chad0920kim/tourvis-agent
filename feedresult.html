@@ -54,6 +54,48 @@
             font-size: 1.1rem;
         }
 
+        /* 연결 상태 표시 */
+        .connection-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .connection-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .connection-status.connected .connection-indicator {
+            background: #28a745;
+            box-shadow: 0 0 6px rgba(40, 167, 69, 0.6);
+        }
+
+        .connection-status.disconnected .connection-indicator {
+            background: #dc3545;
+            box-shadow: 0 0 6px rgba(220, 53, 69, 0.6);
+        }
+
         /* 탭 스타일 */
         .tab-container {
             margin-bottom: 30px;
@@ -438,30 +480,6 @@
             margin-top: 10px;
         }
 
-        /* 매치 상태 표시 */
-        .match-status {
-            padding: 4px 8px;
-            border-radius: 15px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-
-        .match-status.match-good {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .match-status.match-bad {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .match-status.match-improve {
-            background: #fff3cd;
-            color: #856404;
-        }
-
         .loading {
             text-align: center;
             padding: 40px;
@@ -564,17 +582,29 @@
             .tab-buttons {
                 flex-direction: column;
             }
+
+            .connection-status {
+                position: static;
+                margin-bottom: 20px;
+                align-self: center;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- 연결 상태 표시 -->
+        <div id="connectionStatus" class="connection-status disconnected">
+            <div class="connection-indicator"></div>
+            <span id="connectionText">API 연결 확인 중...</span>
+        </div>
+
         <div class="header">
             <h1>🚀 투어비스 통합 대시보드</h1>
             <p>고객 피드백 및 Q&A 통계 분석</p>
         </div>
 
-        <!-- 탭 버튼 (검색어 분석 제거) -->
+        <!-- 탭 버튼 -->
         <div class="tab-container">
             <div class="tab-buttons">
                 <button class="tab-button active" onclick="switchTab('feedback')" id="feedbackTab">
@@ -671,7 +701,7 @@
             </div>
         </div>
 
-        <!-- Q&A 통계 분석 탭 내용 (Q&A 목록 제거) -->
+        <!-- Q&A 통계 분석 탭 내용 -->
         <div id="conversationsContent" class="tab-content">
             <div class="top-controls">
                 <div class="control-group">
