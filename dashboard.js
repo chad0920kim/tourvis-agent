@@ -67,9 +67,8 @@ async function testApiConnection() {
 
     // 모든 엔드포인트 실패 시
     console.error('❌ 모든 API 엔드포인트 연결 실패');
-    updateConnectionStatus(false, 'API 서버 미응답 (데모 모드)');
+    updateConnectionStatus(false, 'API 서버 미응답');
     
-    // 데모 모드로 계속 진행
     return false;
 }
 
@@ -310,6 +309,7 @@ async function loadQAData() {
         return [];
     }
 }
+
 async function fetchConversations(days = 7, limit = 50) {
     const qaEndpoints = [
         `/api/qa/conversations?days=${days}&limit=${limit}`,
@@ -340,7 +340,7 @@ async function fetchConversations(days = 7, limit = 50) {
         }
     }
 
-    console.log(`💬 Q&A API 연결 실패 - 데모 데이터 사용`);
+    console.log(`💬 Q&A API 연결 실패 - 빈 데이터 반환`);
     return {
         conversations: [],
         total: 0,
@@ -387,7 +387,7 @@ function updateStatsDisplay(stats) {
     document.getElementById('uniqueUsers').textContent = stats.unique_users || 0;
     document.getElementById('satisfactionRate').textContent = (stats.satisfaction_rate || 0) + '%';
     
-    // 🔧 사용자 참여도 계산 및 표시
+    // 사용자 참여도 계산 및 표시
     const participationRate = stats.unique_users > 0 
         ? (stats.total_feedback / stats.unique_users).toFixed(2)
         : '0.00';
@@ -593,92 +593,6 @@ function generateTrendData(stats, days) {
     return { positive, negative };
 }
 
-// 데모 데이터 생성 함수들
-function generateDemoStats(days) {
-    const total = Math.floor(Math.random() * 50) + 20; // 20-70개
-    const positive = Math.floor(total * (0.6 + Math.random() * 0.3)); // 60-90%
-    const negative = total - positive;
-    
-    return {
-        total_feedback: total,
-        positive: positive,
-        negative: negative,
-        satisfaction_rate: Math.round((positive / total) * 100),
-        unique_users: Math.floor(total * (0.7 + Math.random() * 0.2)) // 70-90%
-    };
-} 대한 구체적인 정보는 제공되지 않았습니다. 일반적으로 체크카드는 신용카드와 달리 즉시 결제가 이루어지며, 무이자 할부 혜택은 적용되지 않을 수 있습니다.",
-        "예약 확인에 대한 문제를 해결하기 위해 PC/모바일 예약 확인을 통해 투어비스 웹사이트나 모바일 앱에서 로그인 후 예약 내역을 확인할 수 있습니다.",
-        "항공권 결제 영수증과 취소 규정 영수증에 대한 정보를 안내드립니다. 항공권 결제 후 카드 영수증을 받을 수 있는 방법과 취소 수수료 및 환불 규정을 확인하실 수 있습니다.",
-        "항공권 취소 수수료는 항공사, 예약 클래스, 출발일에 따라 다르게 적용될 수 있습니다. 정확한 취소 수수료를 확인하려면 투어비스 고객센터에 문의하시기 바랍니다.",
-        "이름의 띄어쓰기가 되지 않는 문제는 주로 예약 시 입력한 이름과 관련이 있을 수 있습니다. 항공권 예약 시 이름은 여권에 기재된 대로 입력해야 합니다.",
-        "바우처 발행 여부를 확인하기 위해서는 예약 내역을 확인해야 합니다. 이메일 확인이나 투어비스 웹사이트 또는 앱에서 예약 내역을 확인할 수 있습니다.",
-        "만 2세 미만의 유아가 좌석을 사용하기 위해 소아 요금을 지불하려고 할 때 결제가 되지 않는 문제는 여러 가지 이유로 발생할 수 있습니다.",
-        "결제 내역을 확인하기 위해 이메일 확인, 투어비스 웹사이트 또는 앱 로그인, 카드사 확인, 고객센터 문의 등의 방법을 시도해 보세요.",
-        "항공사 마일리지 적립에 대한 정보는 마일리지 적립 방법과 적립 기준에 대해 확인하실 수 있습니다.",
-        "현재 항공권 인보이스 출력에 대한 구체적인 정보를 찾을 수 없습니다. 항공권 예약 확인 방법이나 결제 내역 조회를 통해 확인하실 수 있습니다.",
-        "여권 정보가 틀렸을 경우, 항공권의 탑승객 영문 이름과 여권의 영문 이름이 반드시 일치해야 합니다. 일치하지 않을 경우 탑승이나 입국이 거절될 수 있습니다.",
-        "호텔의 레이트 체크아웃 가능 여부는 각 호텔의 정책에 따라 다를 수 있습니다. 일반적으로 호텔의 객실 상황에 따라 가능할 수도 있으며, 추가 요금이 부과될 수 있습니다.",
-        "호텔 체크인에 대한 정보를 찾고 계신 것 같네요. 대부분의 호텔은 오후 2시에서 3시 사이에 체크인을 시작합니다.",
-        "전자항공권(e-티켓)을 출력하는 방법은 홈페이지 예약 시와 유선상 예약 시에 따라 다릅니다. 투어비스 홈페이지에서 '내 여행 > 예약조회 > E-Ticket 확인'에서 출력할 수 있습니다.",
-        "발권대행 수수료는 항공권 예약, 상담, 발권대행 업무에 대한 수수료입니다. 항공권 결제 시 발권대행 수수료는 요금 규정에서 확인하실 수 있습니다.",
-        "항공권 결제 및 발권 당일에 취소할 경우, 수수료 부과 여부에 대한 정보를 확인하실 수 있습니다.",
-        "투어비스 회원탈퇴 방법에 대한 정보를 안내해드립니다. 회원탈퇴 절차와 관련된 자세한 안내를 받으실 수 있습니다.",
-        "예약에 관련된 질문이신 것 같은데, 항공권 예약, 호텔 예약, 투어&티켓 예약, 패키지 상품 예약 등 다양한 예약 방법이 있습니다.",
-        "환불과 관련된 정보를 제공하기 위해, 어떤 상품에 대한 환불인지 구체적으로 말씀해 주시면 해당 정보를 안내해 드리겠습니다.",
-        "항공권의 이름 변경에 대한 정보는 발권 완료 후 예약 시 기재한 영문명의 수정은 불가합니다. 영문명 기재 오류 시 탑승이나 입국이 거절될 수 있습니다."
-    ];
-    
-    const feedbackItems = [];
-    const count = Math.min(limit, Math.floor(Math.random() * 15) + 5); // 5-20개
-    
-    for (let i = 0; i < count; i++) {
-        const randomIndex = Math.floor(Math.random() * demoQuestions.length);
-        const randomQuestion = demoQuestions[randomIndex];
-        const randomAnswer = demoAnswers[randomIndex];
-        
-        let type;
-        if (feedback_type === 'all') {
-            type = Math.random() > 0.25 ? 'positive' : 'negative'; // 75% positive
-        } else {
-            type = feedback_type;
-        }
-        
-        const timestamp = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000);
-        
-        // 실제 데이터와 유사한 chat_id 형식 생성
-        const chatIdFormats = [
-            `user_d1a0bec29162c2fa`,
-            `user_a8637fe0996f0fdf`,
-            `user_4891505317499602`,
-            `user_94493c82d6a7d76e`,
-            `user_9d6cba34176152e1`,
-            `user_e03e0b49d8d41fca`,
-            `user_1f36a76072182486`,
-            `user_c5b87d77359bb543`,
-            `user_c4ba5f6289c10bf6`,
-            `user_ba6454cad9bb1fb9`
-        ];
-        
-        const randomChatId = chatIdFormats[Math.floor(Math.random() * chatIdFormats.length)];
-        
-        feedbackItems.push({
-            feedback_id: `demo_${Date.now()}_${i}`,
-            chat_id: randomChatId,
-            feedback: type,
-            question: randomQuestion,
-            answer: randomAnswer + " ※ 이 답변은 AI가 안내한 내용으로 실제와 다를 수 있습니다.",
-            timestamp: timestamp.toISOString(),
-            client_ip: `192.168.1.${100 + Math.floor(Math.random() * 50)}`,
-            user_agent: 'Demo Browser'
-        });
-    }
-    
-    return {
-        feedback: feedbackItems,
-        total: feedbackItems.length
-    };
-}
-
 // 피드백 표시
 async function loadFeedback(type = 'all') {
     currentFeedbackFilter = type;
@@ -825,9 +739,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadQAData();
     await refreshData();
 });
+
 document.getElementById('limitSelect').addEventListener('change', () => loadFeedback(currentFeedbackFilter));
 document.getElementById('daysSelect').addEventListener('change', refreshData);
 document.getElementById('conversationDaysSelect').addEventListener('change', refreshConversationData);
+
 document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
