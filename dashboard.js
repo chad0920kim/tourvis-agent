@@ -687,13 +687,13 @@ async function loadFeedback(type = 'all') {
 
     const limit = parseInt(document.getElementById('limitSelect').value);
     
-    // 🔧 피드백과 Q&A 데이터를 동시에 로드
+    // Load feedback and QA data simultaneously
     const [feedbackData, qaData] = await Promise.all([
         fetchFeedback(limit, type),
         globalQAData.length > 0 ? Promise.resolve(globalQAData) : loadQAData()
     ]);
     
-    // 🔧 피드백 데이터를 Q&A 데이터로 보강
+    // Enrich feedback data with QA data
     const enrichedFeedback = enrichFeedbackWithQA(feedbackData.feedback || [], qaData);
     
     allFeedbackData = enrichedFeedback;
@@ -723,7 +723,7 @@ function displayFeedback(feedbackList) {
         const typeClass = feedback.feedback === 'positive' ? 'positive' : 'negative';
         const typeText = feedback.feedback === 'positive' ? '👍 도움됨' : '👎 아쉬움';
         
-        // 🔧 Q&A 연결 상태 표시 (매칭 점수 포함)
+        // Q&A connection status display (with match score)
         let qaStatus = '';
         if (feedback.hasQAData) {
             const matchInfo = feedback.matchScore > 0 ? 
@@ -734,7 +734,7 @@ function displayFeedback(feedbackList) {
             qaStatus = `<span style="color: #dc3545;">○ Q&A 미연결</span>`;
         }
         
-        // 🔧 매치 상태 표시
+        // Match status display
         let matchStatusText = '';
         if (feedback.hasQAData && feedback.match_status !== undefined) {
             const matchLabels = {
@@ -818,10 +818,10 @@ function showError(message, container = 'feedbackList') {
     if (el) el.innerHTML = `<div class="error">${message}</div>`;
 }
 
-// 이벤트
+// Events
 document.addEventListener('DOMContentLoaded', async () => {
     await testApiConnection();
-    // 🔧 Q&A 데이터를 먼저 로드하고 나서 피드백 데이터 로드
+    // Load QA data first, then load feedback data
     await loadQAData();
     await refreshData();
 });
