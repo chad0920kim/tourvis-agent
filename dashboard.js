@@ -1,11 +1,11 @@
 // dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용)
 
-// 설정 - HTTPS 대시보드 서버 사용 (GitHub Pages 업데이트)
+// 설정 - Goorm 공개 도메인 사용
 const API_BASE_URL = window.location.hostname === 'chad0920kim.github.io' 
-    ? 'https://localhost:8505'  // GitHub Pages에서 HTTPS 사용
-    : 'https://localhost:8505';  // 로컬에서도 HTTPS 사용
+    ? 'https://cxdashboard.run.goorm.site'  // Goorm 공개 도메인
+    : 'http://localhost:8505';  // 로컬에서는 HTTP 사용
 
-console.log(`🔗 Dashboard API URL (HTTPS): ${API_BASE_URL}`);
+console.log(`🔗 Dashboard API URL (Goorm): ${API_BASE_URL}`);
 
 let trendChart, avgChart, matchStatusChart, qaTimeChart;
 let currentFeedbackFilter = 'all';
