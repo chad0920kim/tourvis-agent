@@ -1,4 +1,4 @@
-// dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용)
+// dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용) - mrk1
 
 // 설정 - Goorm 공개 도메인 사용
 const API_BASE_URL = window.location.hostname === 'chad0920kim.github.io' 
@@ -252,41 +252,10 @@ function updateStatsDisplay(stats) {
         ? (stats.total_feedback / stats.unique_users).toFixed(2)
         : '0.00';
     
-    // 피드백 응답자 카드에 부연설명 추가
-    const uniqueUsersCard = document.getElementById('uniqueUsers').closest('.stats-card');
-    if (uniqueUsersCard && !uniqueUsersCard.querySelector('.participation-info')) {
-        const participationInfo = document.createElement('div');
-        participationInfo.className = 'participation-info';
-        participationInfo.style.cssText = `
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 8px;
-            line-height: 1.3;
-            border-top: 1px solid #eee;
-            padding-top: 8px;
-        `;
-        participationInfo.innerHTML = `
-            <div style="margin-bottom: 4px;">
-                <span style="color: #ff6b35; font-weight: 600;">사용자 참여도: ${participationRate}회</span>
-            </div>
-            <div style="font-size: 0.75rem; color: #888;">
-                평균 사용자당 피드백 횟수<br>
-                (중복 피드백 제공자 포함)
-            </div>
-        `;
-        uniqueUsersCard.appendChild(participationInfo);
-    } else if (uniqueUsersCard && uniqueUsersCard.querySelector('.participation-info')) {
-        // 기존 정보 업데이트
-        const existingInfo = uniqueUsersCard.querySelector('.participation-info');
-        existingInfo.innerHTML = `
-            <div style="margin-bottom: 4px;">
-                <span style="color: #ff6b35; font-weight: 600;">사용자 참여도: ${participationRate}회</span>
-            </div>
-            <div style="font-size: 0.75rem; color: #888;">
-                평균 사용자당 피드백 횟수<br>
-                (중복 피드백 제공자 포함)
-            </div>
-        `;
+    // 사용자 참여도 표시 업데이트
+    const participationElement = document.getElementById('participationRate');
+    if (participationElement) {
+        participationElement.textContent = participationRate + '회';
     }
 }
 
@@ -678,4 +647,4 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-console.log(`🚀 투어비스 통합 대시보드 초기화 완료`);
+console.log(`🚀 투어비스 통합 대시보드 초기화 완료 (mrk1)`);
