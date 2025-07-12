@@ -172,7 +172,65 @@ async function fetchFeedback(limit = 50, feedback_type = 'all') {
     };
 }
 
-// Q&A 데이터
+// 피드백과 Q&A 데이터 연결 함수
+function enrichFeedbackWithQA(feedbackData, qaData) {
+    return feedbackData.map(feedback => {
+        const chatId = feedback.feedback; // 실제 chat_id
+        const relatedQAs = qaData.filter(qa => qa.chat_id === chatId);
+        
+        if (relatedQAs.length > 0) {
+            // 피드백 시간 이전의 Q&A들만 필터링
+            const feedbackTime = new Date(feedback.timestamp);
+            const validQAs = relatedQAs.filter(qa => {
+                const qaTime = new Date(qa.timestamp);
+                return qaTime <= feedbackTime;
+            });
+            
+            if (validQAs.length > 0) {
+                // 피드백 시간에 가장 가까운 Q&A를 선택
+                const closestQA = validQAs.sort((a, b) => {
+                    const timeA = Math.abs(feedbackTime - new Date(a.timestamp));
+                    const timeB = Math.abs(feedbackTime - new Date(b.timestamp));
+                    return timeA - timeB;
+                })[0];
+                
+                return {
+                    ...feedback,
+                    question: closestQA.question,
+                    answer: closestQA.answer,
+                    qa_id: closestQA.id,
+                    match_status: closestQA.match_status,
+                    hasQAData: true,
+                    qaCount: validQAs.length
+                };
+            }
+        }
+        
+        return {
+            ...feedback,
+            question: feedback.question || '',
+            answer: feedback.answer || '',
+            hasQAData: false,
+            qaCount: 0
+        };
+    });
+}
+
+// Q&A 데이터 로드 및 저장
+let globalQAData = [];
+
+async function loadQAData() {
+    try {
+        const data = await fetchConversations(30, 1000); // 최근 30일, 최대 1000개
+        globalQAData = data.conversations || [];
+        console.log(`✅ Q&A 데이터 로드 완료: ${globalQAData.length}개`);
+        return globalQAData;
+    } catch (error) {
+        console.warn('⚠️ Q&A 데이터 로드 실패:', error);
+        globalQAData = [];
+        return [];
+    }
+}
 async function fetchConversations(days = 7, limit = 50) {
     const qaEndpoints = [
         `/api/qa/conversations?days=${days}&limit=${limit}`,
@@ -549,9 +607,18 @@ async function loadFeedback(type = 'all') {
     document.getElementById(type === 'all' ? 'allBtn' : type + 'Btn').classList.add('active');
 
     const limit = parseInt(document.getElementById('limitSelect').value);
-    const data = await fetchFeedback(limit, type);
-    allFeedbackData = data.feedback || [];
-    displayFeedback(allFeedbackData);
+    
+    // 🔧 피드백과 Q&A 데이터를 동시에 로드
+    const [feedbackData, qaData] = await Promise.all([
+        fetchFeedback(limit, type),
+        globalQAData.length > 0 ? Promise.resolve(globalQAData) : loadQAData()
+    ]);
+    
+    // 🔧 피드백 데이터를 Q&A 데이터로 보강
+    const enrichedFeedback = enrichFeedbackWithQA(feedbackData.feedback || [], qaData);
+    
+    allFeedbackData = enrichedFeedback;
+    displayFeedback(enrichedFeedback);
 }
 
 function displayFeedback(feedbackList) {
@@ -577,10 +644,29 @@ function displayFeedback(feedbackList) {
         const typeClass = feedback.feedback === 'positive' ? 'positive' : 'negative';
         const typeText = feedback.feedback === 'positive' ? '👍 도움됨' : '👎 아쉬움';
         
+        // 🔧 Q&A 연결 상태 표시
+        const qaStatus = feedback.hasQAData ? 
+            `<span style="color: #28a745; font-weight: 600;">✓ Q&A 연결됨 (${feedback.qaCount}건)</span>` : 
+            `<span style="color: #dc3545;">○ Q&A 미연결</span>`;
+        
+        // 🔧 매치 상태 표시
+        let matchStatusText = '';
+        if (feedback.hasQAData && feedback.match_status !== undefined) {
+            const matchLabels = {
+                1.0: '<span style="color: #28a745;">⭕️ 매치</span>',
+                0.0: '<span style="color: #dc3545;">✖️ 매치 안됨</span>',
+                0.5: '<span style="color: #ffc107;">➡️ 보강 필요</span>'
+            };
+            matchStatusText = matchLabels[feedback.match_status] || '<span style="color: #6c757d;">- 미평가</span>';
+        }
+        
         return `
             <div class="data-item ${typeClass}">
                 <div class="data-meta">
-                    <span class="data-type ${typeClass}">${typeText}</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="data-type ${typeClass}">${typeText}</span>
+                        ${matchStatusText}
+                    </div>
                     <span>${date}</span>
                 </div>
                 <div class="data-content">
@@ -595,9 +681,11 @@ function displayFeedback(feedbackList) {
                     }
                 </div>
                 <div class="data-details">
-                    💬 Chat ID: ${feedback.chat_id || 'unknown'} | 
+                    💬 Chat ID: ${feedback.chat_id || feedback.feedback || 'unknown'} | 
                     🌐 IP: ${feedback.client_ip || 'unknown'} | 
-                    🆔 피드백 ID: ${feedback.feedback_id || 'unknown'}
+                    🆔 피드백 ID: ${feedback.feedback_id || 'unknown'} | 
+                    ${qaStatus}
+                    ${feedback.qa_id ? ` | 🔗 Q&A ID: ${feedback.qa_id}` : ''}
                 </div>
             </div>
         `;
