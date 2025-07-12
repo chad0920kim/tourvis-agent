@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 피드백 대시보드</title>
+    <title>투어비스 통합 대시보드 mrk2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -81,7 +81,7 @@
             border-radius: 10px;
             transition: all 0.3s ease;
             flex: 1;
-            max-width: 200px;
+            max-width: 250px;
         }
 
         .tab-button:hover {
@@ -237,7 +237,7 @@
             max-height: 100%;
         }
 
-        .feedback-list, .questions-list {
+        .data-list {
             background: white;
             border-radius: 15px;
             padding: 25px;
@@ -247,13 +247,13 @@
             position: relative;
         }
 
-        .feedback-list h3, .questions-list h3 {
+        .data-list h3 {
             color: #2c3e50;
             margin-bottom: 20px;
             font-size: 1.3rem;
         }
 
-        .feedback-header, .questions-header {
+        .data-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -262,33 +262,33 @@
             gap: 15px;
         }
 
-        .feedback-filters {
+        .data-filters {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
         }
 
-        .feedback-controls, .questions-controls {
+        .data-controls {
             display: flex;
             align-items: center;
             gap: 15px;
             flex-wrap: wrap;
         }
 
-        .feedback-controls .control-group, .questions-controls .control-group {
+        .data-controls .control-group {
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
-        .feedback-controls .control-group label, .questions-controls .control-group label {
+        .data-controls .control-group label {
             font-size: 0.9rem;
             color: #2c3e50;
             font-weight: 600;
             white-space: nowrap;
         }
 
-        .feedback-controls .control-group select, .questions-controls .control-group select {
+        .data-controls .control-group select {
             padding: 6px 10px;
             border: 2px solid #667eea;
             border-radius: 6px;
@@ -317,13 +317,13 @@
             box-shadow: 0 3px 10px rgba(32, 201, 151, 0.3);
         }
 
-        .feedback-info, .questions-info {
+        .data-info {
             color: #6c757d;
             font-size: 0.9rem;
             font-weight: 600;
         }
 
-        .feedback-item, .question-item {
+        .data-item {
             padding: 20px;
             border-left: 4px solid #667eea;
             background: #f8f9fa;
@@ -333,24 +333,24 @@
             position: relative;
         }
 
-        .feedback-item:hover, .question-item:hover {
+        .data-item:hover {
             background: #e9ecef;
             transform: translateX(5px);
         }
 
-        .feedback-item.positive {
+        .data-item.positive {
             border-left-color: #28a745;
         }
 
-        .feedback-item.negative {
+        .data-item.negative {
             border-left-color: #dc3545;
         }
 
-        .question-item {
+        .data-item.qa-item {
             border-left-color: #17a2b8;
         }
 
-        .feedback-meta, .question-meta {
+        .data-meta {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -359,24 +359,29 @@
             color: #6c757d;
         }
 
-        .feedback-type {
+        .data-type {
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 0.8rem;
             font-weight: 600;
         }
 
-        .feedback-type.positive {
+        .data-type.positive {
             background: #d4edda;
             color: #155724;
         }
 
-        .feedback-type.negative {
+        .data-type.negative {
             background: #f8d7da;
             color: #721c24;
         }
 
-        .feedback-content, .question-content {
+        .data-type.qa {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .data-content {
             margin-bottom: 12px;
         }
 
@@ -395,13 +400,12 @@
             word-wrap: break-word;
             overflow-wrap: break-word;
             position: relative;
-            /* 기본적으로 전체 내용 표시 */
             max-height: none;
             overflow: visible;
         }
 
         .answer.collapsed {
-            max-height: 80px; /* 높이를 좀 더 늘림 */
+            max-height: 80px;
             overflow: hidden;
             position: relative;
         }
@@ -411,7 +415,7 @@
             position: absolute;
             bottom: 0;
             left: 0;
-            height: 30px; /* 그라디언트 높이 증가 */
+            height: 30px;
             width: 100%;
             background: linear-gradient(transparent, #f8f9fa);
             pointer-events: none;
@@ -434,7 +438,7 @@
             color: #564ba2;
         }
 
-        .feedback-details, .question-details {
+        .data-details {
             font-size: 0.8rem;
             color: #6c757d;
             background: rgba(108, 117, 125, 0.1);
@@ -443,81 +447,28 @@
             margin-top: 10px;
         }
 
-        .load-more-container {
-            text-align: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #e9ecef;
-        }
-
-        #loadMoreBtn, #loadMoreQuestionsBtn {
-            padding: 12px 24px;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
+        /* 매치 상태 표시 */
+        .match-status {
+            padding: 4px 8px;
+            border-radius: 15px;
+            font-size: 0.7rem;
             font-weight: 600;
-            transition: all 0.3s ease;
+            margin-left: 10px;
         }
 
-        #loadMoreBtn:hover, #loadMoreQuestionsBtn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        .match-status.match-good {
+            background: #d4edda;
+            color: #155724;
         }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #6c757d;
-        }
-
-        .loading::after {
-            content: '';
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-top: 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .error {
-            text-align: center;
-            padding: 20px;
+        .match-status.match-bad {
             background: #f8d7da;
             color: #721c24;
-            border-radius: 10px;
-            margin: 20px 0;
         }
 
-        .feedback-list::-webkit-scrollbar, .questions-list::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .feedback-list::-webkit-scrollbar-track, .questions-list::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        .feedback-list::-webkit-scrollbar-thumb, .questions-list::-webkit-scrollbar-thumb {
-            background: #667eea;
-            border-radius: 4px;
-        }
-
-        .feedback-list::-webkit-scrollbar-thumb:hover, .questions-list::-webkit-scrollbar-thumb:hover {
-            background: #564ba2;
-        }
-
-        html {
-            scroll-behavior: auto;
+        .match-status.match-improve {
+            background: #fff3cd;
+            color: #856404;
         }
 
         /* 검색 관련 스타일 */
@@ -611,6 +562,114 @@
             font-weight: 600;
         }
 
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .loading::after {
+            content: '';
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            text-align: center;
+            padding: 20px;
+            background: #f8d7da;
+            color: #721c24;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .data-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .data-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .data-list::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        .data-list::-webkit-scrollbar-thumb:hover {
+            background: #564ba2;
+        }
+
+        .data-filters button {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .data-filters button.active,
+        .data-filters button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Q&A 대화 스타일 */
+        .qa-conversation {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-top: 10px;
+            padding: 15px;
+        }
+
+        .qa-conversation h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .conversation-item {
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-left: 3px solid #17a2b8;
+        }
+
+        .conversation-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .conversation-q {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        .conversation-a {
+            color: #495057;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
         @media (max-width: 768px) {
             .chart-section {
                 grid-template-columns: 1fr;
@@ -621,24 +680,24 @@
                 align-items: center;
             }
             
-            .feedback-meta, .question-meta {
+            .data-meta {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 5px;
             }
             
-            .feedback-header, .questions-header {
+            .data-header {
                 flex-direction: column;
                 align-items: stretch;
                 gap: 15px;
             }
             
-            .feedback-controls, .questions-controls {
+            .data-controls {
                 justify-content: center;
                 gap: 10px;
             }
             
-            .feedback-controls .control-group, .questions-controls .control-group {
+            .data-controls .control-group {
                 order: -1;
             }
 
@@ -655,31 +714,13 @@
                 min-width: auto;
             }
         }
-
-        .feedback-filters button {
-            padding: 8px 16px;
-            border: 2px solid #667eea;
-            background: white;
-            color: #667eea;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-        
-        .feedback-filters button.active,
-        .feedback-filters button:hover {
-            background: #667eea;
-            color: white;
-            transform: translateY(-2px);
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 투어비스 피드백 대시보드</h1>
-            <p>고객 피드백 통계 및 분석</p>
+            <h1>🚀 투어비스 통합 대시보드</h1>
+            <p>고객 피드백 및 Q&A 대화 분석</p>
         </div>
 
         <!-- 탭 버튼 -->
@@ -690,6 +731,9 @@
                 </button>
                 <button class="tab-button" onclick="switchTab('questions')" id="questionsTab">
                     🔍 검색어 분석
+                </button>
+                <button class="tab-button" onclick="switchTab('conversations')" id="conversationsTab">
+                    💬 Q&A 대화 분석
                 </button>
             </div>
         </div>
@@ -747,15 +791,15 @@
                 </div>
             </div>
 
-            <div class="feedback-list">
+            <div class="data-list">
                 <h3>📝 최근 피드백</h3>
-                <div class="feedback-header">
-                    <div class="feedback-filters">
+                <div class="data-header">
+                    <div class="data-filters">
                         <button onclick="loadFeedback('all')" id="allBtn" class="active">전체</button>
                         <button onclick="loadFeedback('positive')" id="positiveBtn">도움됨</button>
                         <button onclick="loadFeedback('negative')" id="negativeBtn">아쉬움</button>
                     </div>
-                    <div class="feedback-controls">
+                    <div class="data-controls">
                         <div class="control-group">
                             <label>표시 개수:</label>
                             <select id="limitSelect">
@@ -768,7 +812,7 @@
                         </div>
                         <button onclick="expandAllAnswers()" class="expand-all-btn">📖 모두 펼치기</button>
                         <button onclick="collapseAllAnswers()" class="collapse-all-btn">📋 모두 접기</button>
-                        <div class="feedback-info">
+                        <div class="data-info">
                             <span id="feedbackCount">0개</span> 표시 중
                         </div>
                     </div>
@@ -822,15 +866,15 @@
                 </div>
             </div>
 
-            <div class="questions-list">
+            <div class="data-list">
                 <h3>🔍 검색어 목록</h3>
-                <div class="questions-header">
+                <div class="data-header">
                     <div class="search-container">
                         <input type="text" id="searchInput" class="search-input" placeholder="검색어를 입력하세요..." />
                         <button onclick="searchQuestions()" class="search-btn">🔍 검색</button>
                         <button onclick="clearSearch()" class="clear-search-btn">✖ 초기화</button>
                     </div>
-                    <div class="questions-controls">
+                    <div class="data-controls">
                         <div class="control-group">
                             <label>표시 개수:</label>
                             <select id="questionLimitSelect">
@@ -840,7 +884,7 @@
                                 <option value="200">200개</option>
                             </select>
                         </div>
-                        <div class="questions-info">
+                        <div class="data-info">
                             <span id="questionsCount">0개</span> 표시 중
                         </div>
                     </div>
@@ -848,46 +892,36 @@
                 <div id="questionsList">
                     <div class="loading">검색어 데이터를 불러오는 중...</div>
                 </div>
-                <div class="load-more-container">
-                    <button id="loadMoreQuestionsBtn" onclick="loadMoreQuestions()" style="display: none;">
-                        📄 더 많이 보기
-                    </button>
-                </div>
             </div>
         </div>
-    </div>
 
-    <script>
-        // 설정
-        const API_BASE_URL = 'https://tourvis-agent-mibqa.run.goorm.site';
-        
-        let trendChart, avgChart, wordFrequencyChart;
-        let currentFeedbackFilter = 'all';
-        
-        // 🔧 offset 관련 변수 제거 및 단순화
-        let allFeedbackData = []; // 모든 피드백 데이터를 저장할 배열
+        <!-- Q&A 대화 탭 내용 -->
+        <div id="conversationsContent" class="tab-content">
+            <div class="top-controls">
+                <div class="control-group">
+                    <label>분석 기간:</label>
+                    <select id="conversationDaysSelect">
+                        <option value="1">오늘</option>
+                        <option value="7" selected>최근 7일</option>
+                        <option value="30">최근 30일</option>
+                        <option value="90">최근 90일</option>
+                    </select>
+                </div>
+                <button onclick="refreshConversationData()">🔄 새로고침</button>
+            </div>
 
-        // 검색어 관련 변수
-        let currentQuestionsOffset = 0;
-        let hasMoreQuestions = true;
-        let currentSearchQuery = '';
-        let isSearchMode = false;
-
-        // 탭 전환 함수
-        function switchTab(tabName) {
-            // 모든 탭 내용 숨기기
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            
-            // 모든 탭 버튼 비활성화
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('active');
-            });
-            
-            // 선택된 탭 활성화
-            document.getElementById(tabName + 'Content').classList.add('active');
-            document.getElementById(tabName + 'Tab').classList.add('active');
-            
-            // 탭에 따른 초기 데이터 로드
-            if (tab
+            <div class="stats-grid">
+                <div class="stat-card total">
+                    <h3>총 Q&A</h3>
+                    <div class="value" id="totalConversations">0</div>
+                </div>
+                <div class="stat-card users">
+                    <h3>세션 수</h3>
+                    <div class="value" id="totalSessions">0</div>
+                </div>
+                <div class="stat-card positive">
+                    <h3>매치⭕️</h3>
+                    <div class="value" id="matchGood">0</div>
+                </div>
+                <div class="stat-card negative">
+                    <h3>매치✖️</h3
