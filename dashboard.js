@@ -1,18 +1,14 @@
-// dashboard.js - 투어비스 통합 대시보드 JavaScript
+// dashboard.js - 투어비스 통합 대시보드 JavaScript (간소화 버전)
 
 // 설정
 const API_BASE_URL = 'http://localhost:8001'; // main_sub.py 서비스 URL
 
-let trendChart, avgChart, wordFrequencyChart, matchStatusChart, qaTimeChart;
+let trendChart, avgChart, matchStatusChart, qaTimeChart;
 let currentFeedbackFilter = 'all';
-let currentConversationFilter = 'all';
 
 let allFeedbackData = [];
-let allConversationData = [];
-let currentSearchQuery = '';
-let isSearchMode = false;
 
-// 탭 전환 함수
+// 탭 전환 함수 (검색어 분석 제거)
 function switchTab(tabName) {
     // 모든 탭 내용 숨기기
     document.querySelectorAll('.tab-content').forEach(content => {
@@ -31,8 +27,6 @@ function switchTab(tabName) {
     // 탭에 따른 초기 데이터 로드
     if (tabName === 'feedback') {
         refreshData();
-    } else if (tabName === 'questions') {
-        refreshQuestionData();
     } else if (tabName === 'conversations') {
         refreshConversationData();
     }
@@ -70,13 +64,12 @@ async function fetchFeedback(limit = 50, feedback_type = 'all') {
 // Q&A 대화 데이터 로드 함수들
 async function fetchConversations(days = 7, limit = 50) {
     try {
-        // 실제 API 엔드포인트로 요청 (향후 main_sub.py에 추가될 예정)
+        // 실제 API 엔드포인트로 요청
         const response = await fetch(`${API_BASE_URL}/qa/conversations?days=${days}&limit=${limit}`);
         if (response.ok) {
             return await response.json();
         } else {
-            // API가 아직 없는 경우 목업 데이터 사용
-            console.warn('Q&A API 엔드포인트가 아직 구현되지 않음. 목업 데이터 사용.');
+            console.warn('Q&A API 엔드포인트 호출 실패. 목업 데이터 사용.');
         }
     } catch (error) {
         console.error('Q&A API 호출 실패:', error);
@@ -120,19 +113,6 @@ function generateMockConversations(days = 7, limit = 50) {
         "날짜 변경 수수료는 얼마인가요?"
     ];
 
-    const answers = [
-        "일반적으로 호텔 체크인 시간은 오후 3시부터입니다. 다만 호텔마다 정책이 다를 수 있으니 예약 확인서를 확인해 주세요.",
-        "취소 수수료는 예약 조건에 따라 다릅니다. 무료 취소 기간, 부분 취소 수수료 기간, 전액 취소 수수료 기간으로 나뉩니다.",
-        "무료 취소는 일반적으로 출발 24-48시간 전까지 가능합니다. 상품별로 조건이 다르니 예약 시 확인해 주세요.",
-        "항공료에는 기본 세금과 유류할증료가 포함되어 있습니다. 추가 세금이 있는 경우 별도 안내드립니다.",
-        "수하물 규정은 항공사별로 다릅니다. 일반적으로 이코노미 클래스는 23kg까지 무료입니다.",
-        "호텔 조식 포함 여부는 상품 상세페이지에서 확인하실 수 있습니다. '조식 포함' 표시를 확인해 주세요.",
-        "대부분의 신용카드로 2-12개월 무이자 할부가 가능합니다. 카드사별 혜택을 확인해 주세요.",
-        "예약 완료 후 이메일로 예약 확인서가 발송됩니다. 마이페이지에서도 확인 가능합니다.",
-        "비자 발급은 여행객이 직접 진행하셔야 합니다. 투어비스는 비자 대행 서비스를 제공하지 않습니다.",
-        "환불은 취소 완료 후 5-7 영업일 내에 처리됩니다. 카드사 정책에 따라 실제 입금까지 추가 시간이 소요될 수 있습니다."
-    ];
-
     const mockConversations = [];
     const now = new Date();
     const matchStatuses = [1.0, 0.0, 0.5, null];
@@ -145,7 +125,6 @@ function generateMockConversations(days = 7, limit = 50) {
         
         const questionIndex = Math.floor(Math.random() * questions.length);
         const question = questions[questionIndex];
-        const answer = answers[Math.min(questionIndex, answers.length - 1)];
         
         mockConversations.push({
             id: `${chatId}_${Math.floor(timestamp.getTime() / 1000)}_${Math.floor(Math.random() * 10000)}`,
@@ -153,12 +132,6 @@ function generateMockConversations(days = 7, limit = 50) {
             chat_id: chatId,
             timestamp: timestamp.toISOString(),
             question: question,
-            answer: answer,
-            metadata: {
-                has_typo_correction: Math.random() < 0.1,
-                original_question: question,
-                response_time_ms: Math.floor(Math.random() * 3000) + 500
-            },
             match_status: matchStatuses[Math.floor(Math.random() * matchStatuses.length)]
         });
     }
@@ -185,11 +158,10 @@ async function refreshData() {
 // Q&A 대화 데이터 새로고침
 async function refreshConversationData() {
     const days = parseInt(document.getElementById('conversationDaysSelect').value);
-    const limit = parseInt(document.getElementById('conversationLimitSelect').value);
     
-    const data = await fetchConversations(days, limit);
+    const data = await fetchConversations(days, 100);
     updateConversationStats(data);
-    await loadConversations(currentConversationFilter, data);
+    updateConversationCharts(data);
 }
 
 // 통계 표시 업데이트
@@ -283,7 +255,7 @@ function updateCharts(stats, days) {
         }
     });
 
-    // 평균 피드백 차트
+    // 피드백 분포 차트
     const avgCtx = document.getElementById('avgChart').getContext('2d');
     avgChart = new Chart(avgCtx, {
         type: 'doughnut',
@@ -438,42 +410,6 @@ async function loadFeedback(type = 'all') {
     displayFeedback(allFeedbackData);
 }
 
-// Q&A 대화 로드
-async function loadConversations(type = 'all', data = null) {
-    currentConversationFilter = type;
-    
-    // 필터 버튼 상태 업데이트
-    document.querySelectorAll('#conversationsContent .data-filters button').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.getElementById(type === 'all' ? 'allConvBtn' : type + 'Btn').classList.add('active');
-    
-    if (!data) {
-        const days = parseInt(document.getElementById('conversationDaysSelect').value);
-        const limit = parseInt(document.getElementById('conversationLimitSelect').value);
-        data = await fetchConversations(days, limit);
-    }
-    
-    let filteredData = data.conversations || [];
-    
-    // 필터링
-    if (type !== 'all') {
-        if (type === 'match_good') {
-            filteredData = filteredData.filter(c => c.match_status === 1.0);
-        } else if (type === 'match_bad') {
-            filteredData = filteredData.filter(c => c.match_status === 0.0);
-        } else if (type === 'match_improve') {
-            filteredData = filteredData.filter(c => c.match_status === 0.5);
-        } else if (type === 'no_match') {
-            filteredData = filteredData.filter(c => c.match_status === null || c.match_status === undefined);
-        }
-    }
-    
-    allConversationData = filteredData;
-    displayConversations(allConversationData);
-    updateConversationCharts(data);
-}
-
 // 피드백 표시
 function displayFeedback(feedbackList) {
     const container = document.getElementById('feedbackList');
@@ -527,85 +463,10 @@ function displayFeedback(feedbackList) {
     container.innerHTML = html;
 }
 
-// Q&A 대화 표시
-function displayConversations(conversationList) {
-    const container = document.getElementById('conversationsList');
-    const countElement = document.getElementById('conversationsCount');
-    
-    countElement.textContent = conversationList.length + '개';
-    
-    if (conversationList.length === 0) {
-        container.innerHTML = '<div class="error">표시할 Q&A 대화가 없습니다.</div>';
-        return;
-    }
-    
-    const html = conversationList.map((conversation, index) => {
-        const date = new Date(conversation.timestamp).toLocaleDateString('ko-KR', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        
-        // 매치 상태 표시
-        let matchStatusHtml = '';
-        if (conversation.match_status === 1.0) {
-            matchStatusHtml = '<span class="match-status match-good">매치⭕️</span>';
-        } else if (conversation.match_status === 0.0) {
-            matchStatusHtml = '<span class="match-status match-bad">매치✖️</span>';
-        } else if (conversation.match_status === 0.5) {
-            matchStatusHtml = '<span class="match-status match-improve">보강➡️</span>';
-        }
-        
-        return `
-            <div class="data-item qa-item">
-                <div class="data-meta">
-                    <span class="data-type qa">💬 Q&A</span>
-                    <span>${date}${matchStatusHtml}</span>
-                </div>
-                <div class="data-content">
-                    <div class="question">❓ ${conversation.question}</div>
-                    <div class="answer ${index < 3 ? '' : 'collapsed'}" id="qa_answer_${index}">
-                        ${conversation.answer}
-                    </div>
-                    ${conversation.answer.length > 200 ? 
-                        `<button class="expand-toggle" onclick="toggleQAAnswer(${index})">
-                            <span id="qa_toggle_text_${index}">${index < 3 ? '접기' : '더보기'}</span>
-                        </button>` : ''
-                    }
-                </div>
-                <div class="data-details">
-                    💬 Chat ID: ${conversation.chat_id} | 
-                    🆔 QA ID: ${conversation.id} | 
-                    📅 세션: ${conversation.session_id}
-                    ${conversation.metadata?.has_typo_correction ? ' | ✏️ 오타보정됨' : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    container.innerHTML = html;
-}
-
 // 답변 토글 함수
 function toggleAnswer(index) {
     const answer = document.getElementById(`answer_${index}`);
     const toggleText = document.getElementById(`toggle_text_${index}`);
-    
-    if (answer.classList.contains('collapsed')) {
-        answer.classList.remove('collapsed');
-        toggleText.textContent = '접기';
-    } else {
-        answer.classList.add('collapsed');
-        toggleText.textContent = '더보기';
-    }
-}
-
-// Q&A 답변 토글 함수
-function toggleQAAnswer(index) {
-    const answer = document.getElementById(`qa_answer_${index}`);
-    const toggleText = document.getElementById(`qa_toggle_text_${index}`);
     
     if (answer.classList.contains('collapsed')) {
         answer.classList.remove('collapsed');
@@ -635,178 +496,14 @@ function collapseAllAnswers() {
     });
 }
 
-// 모든 Q&A 대화 펼치기/접기
-function expandAllConversations() {
-    document.querySelectorAll('#conversationsList .answer').forEach(answer => {
-        answer.classList.remove('collapsed');
-    });
-    document.querySelectorAll('#conversationsList .expand-toggle span').forEach(span => {
-        span.textContent = '접기';
-    });
-}
-
-function collapseAllConversations() {
-    document.querySelectorAll('#conversationsList .answer').forEach(answer => {
-        answer.classList.add('collapsed');
-    });
-    document.querySelectorAll('#conversationsList .expand-toggle span').forEach(span => {
-        span.textContent = '더보기';
-    });
-}
-
-// 검색어 관련 함수들 (향후 구현)
-async function refreshQuestionData() {
-    const days = parseInt(document.getElementById('questionDaysSelect').value);
-    console.log(`검색어 데이터 새로고침 (${days}일) - 향후 구현 예정`);
-    
-    // 목업 검색어 통계
-    const mockQuestionStats = {
-        total_questions: Math.floor(Math.random() * 500) + 100,
-        avg_length: Math.floor(Math.random() * 20) + 15,
-        avg_word_count: Math.floor(Math.random() * 5) + 3,
-        unique_words: Math.floor(Math.random() * 200) + 50
-    };
-    
-    // 통계 업데이트
-    document.getElementById('totalQuestions').textContent = mockQuestionStats.total_questions;
-    document.getElementById('avgLength').textContent = mockQuestionStats.avg_length + '자';
-    document.getElementById('avgWordCount').textContent = mockQuestionStats.avg_word_count + '개';
-    document.getElementById('uniqueWords').textContent = mockQuestionStats.unique_words + '개';
-    
-    // 목업 키워드 차트
-    updateWordFrequencyChart();
-}
-
-function updateWordFrequencyChart() {
-    if (wordFrequencyChart) {
-        wordFrequencyChart.destroy();
-    }
-    
-    const ctx = document.getElementById('wordFrequencyChart').getContext('2d');
-    const mockKeywords = [
-        { word: '체크인', count: 45 },
-        { word: '취소', count: 38 },
-        { word: '환불', count: 32 },
-        { word: '할부', count: 28 },
-        { word: '예약', count: 25 },
-        { word: '호텔', count: 22 },
-        { word: '항공료', count: 20 },
-        { word: '수하물', count: 18 },
-        { word: '날짜변경', count: 15 },
-        { word: '비자', count: 12 }
-    ];
-    
-    wordFrequencyChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: mockKeywords.map(k => k.word),
-            datasets: [{
-                label: '검색 빈도',
-                data: mockKeywords.map(k => k.count),
-                backgroundColor: [
-                    '#667eea', '#764ba2', '#f093fb', '#f5576c',
-                    '#4facfe', '#00f2fe', '#43e97b', '#38f9d7',
-                    '#ffecd2', '#fcb69f'
-                ],
-                borderColor: '#fff',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 5
-                    }
-                },
-                x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
-                }
-            }
-        }
-    });
-}
-
-function searchQuestions() {
-    const query = document.getElementById('searchInput').value.trim();
-    if (!query) {
-        alert('검색어를 입력해주세요.');
-        return;
-    }
-    
-    currentSearchQuery = query;
-    isSearchMode = true;
-    
-    console.log(`검색: "${query}" - 향후 구현 예정`);
-    
-    // 목업 검색 결과
-    const mockResults = [
-        `"${query}"가 포함된 검색어 1`,
-        `"${query}"가 포함된 검색어 2`,
-        `"${query}"가 포함된 검색어 3`
-    ];
-    
-    document.getElementById('questionsList').innerHTML = `
-        <div class="data-item qa-item">
-            <div class="data-content">
-                <div class="question">🔍 검색 결과: "${query}"</div>
-                <div class="answer">
-                    ${mockResults.map(result => `• ${result}`).join('<br>')}
-                    <br><br>
-                    <em>실제 검색 기능은 향후 구현 예정입니다.</em>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('questionsCount').textContent = mockResults.length + '개';
-}
-
-function clearSearch() {
-    document.getElementById('searchInput').value = '';
-    currentSearchQuery = '';
-    isSearchMode = false;
-    
-    // 전체 검색어 목록 다시 로드
-    refreshQuestionData();
-    
-    console.log('검색 초기화');
-}
-
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
     refreshData(); // 초기 피드백 데이터 로드
-    
-    // 검색어 입력 시 엔터키 이벤트
-    document.getElementById('searchInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            searchQuestions();
-        }
-    });
 });
 
 // 이벤트 리스너
 document.getElementById('limitSelect').addEventListener('change', function() {
     loadFeedback(currentFeedbackFilter);
-});
-
-document.getElementById('conversationLimitSelect').addEventListener('change', function() {
-    loadConversations(currentConversationFilter);
-});
-
-document.getElementById('questionLimitSelect').addEventListener('change', function() {
-    refreshQuestionData();
 });
 
 document.getElementById('daysSelect').addEventListener('change', function() {
@@ -815,10 +512,6 @@ document.getElementById('daysSelect').addEventListener('change', function() {
 
 document.getElementById('conversationDaysSelect').addEventListener('change', function() {
     refreshConversationData();
-});
-
-document.getElementById('questionDaysSelect').addEventListener('change', function() {
-    refreshQuestionData();
 });
 
 // 추가 유틸리티 함수들
@@ -835,29 +528,16 @@ function formatDate(dateString) {
     });
 }
 
-// 텍스트 하이라이트 함수
-function highlightText(text, query) {
-    if (!query || !text) return text;
-    const regex = new RegExp(`(${query})`, 'gi');
-    return text.replace(regex, '<mark>$1</mark>');
-}
-
 // 데이터 내보내기 함수
 function exportData(type) {
     let data, filename;
     
-    switch(type) {
-        case 'feedback':
-            data = allFeedbackData;
-            filename = 'feedback_data.json';
-            break;
-        case 'conversations':
-            data = allConversationData;
-            filename = 'qa_conversations.json';
-            break;
-        default:
-            console.error('Unknown export type:', type);
-            return;
+    if (type === 'feedback') {
+        data = allFeedbackData;
+        filename = 'feedback_data.json';
+    } else {
+        console.error('Unknown export type:', type);
+        return;
     }
     
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -899,7 +579,6 @@ function measurePerformance(name, fn) {
 // 성능 최적화된 함수들로 래핑
 const optimizedRefreshData = measurePerformance('피드백 데이터 새로고침', refreshData);
 const optimizedRefreshConversationData = measurePerformance('Q&A 데이터 새로고침', refreshConversationData);
-const optimizedRefreshQuestionData = measurePerformance('검색어 데이터 새로고침', refreshQuestionData);
 
 // 키보드 단축키 지원
 document.addEventListener('keydown', function(e) {
@@ -912,29 +591,20 @@ document.addEventListener('keydown', function(e) {
             case 'feedbackTab':
                 optimizedRefreshData();
                 break;
-            case 'questionsTab':
-                optimizedRefreshQuestionData();
-                break;
             case 'conversationsTab':
                 optimizedRefreshConversationData();
                 break;
         }
     }
     
-    // Ctrl/Cmd + 1,2,3: 탭 전환
-    if ((e.ctrlKey || e.metaKey) && ['1', '2', '3'].includes(e.key)) {
+    // Ctrl/Cmd + 1,2: 탭 전환
+    if ((e.ctrlKey || e.metaKey) && ['1', '2'].includes(e.key)) {
         e.preventDefault();
         const tabMap = {
             '1': 'feedback',
-            '2': 'questions', 
-            '3': 'conversations'
+            '2': 'conversations'
         };
         switchTab(tabMap[e.key]);
-    }
-    
-    // ESC: 검색 초기화
-    if (e.key === 'Escape' && isSearchMode) {
-        clearSearch();
     }
 });
 
@@ -953,9 +623,6 @@ function startAutoRefresh(minutes = 5) {
         switch(activeTab) {
             case 'feedbackTab':
                 optimizedRefreshData();
-                break;
-            case 'questionsTab':
-                optimizedRefreshQuestionData();
                 break;
             case 'conversationsTab':
                 optimizedRefreshConversationData();
@@ -989,9 +656,6 @@ document.addEventListener('visibilitychange', function() {
         switch(activeTab) {
             case 'feedbackTab':
                 optimizedRefreshData();
-                break;
-            case 'questionsTab':
-                optimizedRefreshQuestionData();
                 break;
             case 'conversationsTab':
                 optimizedRefreshConversationData();
@@ -1030,13 +694,12 @@ function checkBrowserSupport() {
 }
 
 // 초기화 완료 로그
-console.log('🚀 투어비스 통합 대시보드 초기화 완료');
+console.log('🚀 투어비스 통합 대시보드 초기화 완료 (간소화 버전)');
 console.log('📊 사용 가능한 기능:');
 console.log('- 피드백 분석 및 시각화');
-console.log('- Q&A 대화 분석');
-console.log('- 검색어 분석');
+console.log('- Q&A 통계 분석');
 console.log('- 실시간 통계');
-console.log('- 키보드 단축키 (Ctrl+R: 새로고침, Ctrl+1,2,3: 탭 전환)');
+console.log('- 키보드 단축키 (Ctrl+R: 새로고침, Ctrl+1,2: 탭 전환)');
 console.log('- 자동 새로고침 (현재 비활성화, startAutoRefresh(분) 으로 활성화 가능)');
 
 // 브라우저 지원 체크
