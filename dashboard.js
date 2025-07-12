@@ -21,32 +21,52 @@ function updateConnectionStatus(isConnected, message = '') {
     }
 }
 
-// API 연결 테스트
+// API 연결 테스트 (여러 엔드포인트 시도)
 async function testApiConnection() {
-    try {
-        console.log('🔍 API 연결 테스트 중...');
-        updateConnectionStatus(false, 'API 연결 확인 중...');
+    const healthEndpoints = [
+        '/health',
+        '/api/health', 
+        '/status',
+        '/ping',
+        '/'
+    ];
+    
+    console.log('🔍 API 연결 테스트 중...');
+    updateConnectionStatus(false, 'API 연결 확인 중...');
 
-        const response = await fetch(`${API_BASE_URL}/health`, {
-            method: 'GET',
-            signal: AbortSignal.timeout(5000)
-        });
+    for (const endpoint of healthEndpoints) {
+        try {
+            console.log(`시도 중: ${API_BASE_URL}${endpoint}`);
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(3000)
+            });
 
-        if (response.ok) {
-            const data = await response.json();
-            console.log('✅ API 연결 성공:', data);
-            updateConnectionStatus(true, `API 연결됨 (${data.service})`);
-            return true;
-        } else {
-            console.error('❌ API 응답 오류:', response.status);
-            updateConnectionStatus(false, `API 오류: ${response.status}`);
-            return false;
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                let data = {};
+                
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    data = { service: 'Server', status: 'ok' };
+                }
+                
+                console.log(`✅ API 연결 성공 (${endpoint}):`, data);
+                updateConnectionStatus(true, `API 연결됨 (${data.service || 'Server'})`);
+                return true;
+            }
+        } catch (error) {
+            console.log(`❌ ${endpoint} 실패:`, error.message);
         }
-    } catch (error) {
-        console.error('❌ API 연결 실패:', error);
-        updateConnectionStatus(false, 'API 연결 실패');
-        return false;
     }
+
+    // 모든 엔드포인트 실패 시
+    console.error('❌ 모든 API 엔드포인트 연결 실패');
+    updateConnectionStatus(false, 'API 서버 미응답 (데모 모드)');
+    
+    // 데모 모드로 계속 진행
+    return false;
 }
 
 // 탭 전환 함수
@@ -69,34 +89,40 @@ function switchTab(tabName) {
     }
 }
 
-// 통계 데이터
+// 통계 데이터 (개선된 오류 처리)
 async function fetchStats(days = 7) {
-    try {
-        console.log(`📊 통계 데이터 요청: ${API_BASE_URL}/stats?days=${days}`);
-        const response = await fetch(`${API_BASE_URL}/stats?days=${days}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(10000)
-        });
+    const statsEndpoints = [
+        `/api/stats?days=${days}`,
+        `/stats?days=${days}`,
+        `/admin/stats?days=${days}`
+    ];
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    for (const endpoint of statsEndpoints) {
+        try {
+            console.log(`📊 통계 데이터 요청: ${API_BASE_URL}${endpoint}`);
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                signal: AbortSignal.timeout(10000)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ 통계 데이터 수신:', data);
+                return data;
+            } else if (response.status !== 404) {
+                // 404가 아닌 다른 오류는 로그에 기록
+                console.warn(`⚠️ ${endpoint} 응답 오류: ${response.status}`);
+            }
+        } catch (error) {
+            if (!error.message.includes('404')) {
+                console.warn(`⚠️ ${endpoint} 요청 실패:`, error.message);
+            }
         }
-
-        const data = await response.json();
-        console.log('✅ 통계 데이터 수신:', data);
-        return data;
-    } catch (error) {
-        console.error('❌ 통계 데이터 로드 실패:', error);
-        showError('통계 데이터를 불러올 수 없습니다.');
-        return {
-            total_feedback: 0,
-            positive: 0,
-            negative: 0,
-            satisfaction_rate: 0,
-            unique_users: 0
-        };
     }
+
+    console.log('📊 API 연결 실패 - 데모 데이터 사용');
+    return generateDemoStats(days);
 }
 
 // 피드백 데이터
