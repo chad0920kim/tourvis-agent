@@ -464,13 +464,33 @@ function updateStatsDisplay(stats) {
 }
 
 function updateConversationStats(data) {
-    const stats = data.stats || {};
-    document.getElementById('totalConversations').textContent = stats.total_conversations || 0;
-    document.getElementById('totalSessions').textContent = stats.unique_sessions || 0;
-    document.getElementById('matchGood').textContent = stats.match_distribution.good || 0;
-    document.getElementById('matchBad').textContent = stats.match_distribution.bad || 0;
-    document.getElementById('matchImprove').textContent = stats.match_distribution.improve || 0;
+  let stats = data.stats;
+
+  // ✅ stats가 없으면 fallback으로 직접 계산
+  if (!stats) {
+    const conversations = data.conversations || [];
+    stats = {
+      total_conversations: conversations.length,
+      unique_sessions: new Set(conversations.map(conv => conv.session_id)).size,
+      match_distribution: { good: 0, bad: 0, improve: 0 }
+    };
+
+    conversations.forEach(conv => {
+      const status = conv.match_status;
+      if (status === 1.0) stats.match_distribution.good++;
+      else if (status === 0.0) stats.match_distribution.bad++;
+      else if (status === 0.5) stats.match_distribution.improve++;
+    });
+  }
+
+  // ✅ 항상 stats로 표시
+  document.getElementById('totalConversations').textContent = stats.total_conversations || 0;
+  document.getElementById('totalSessions').textContent = stats.unique_sessions || 0;
+  document.getElementById('matchGood').textContent = stats.match_distribution.good || 0;
+  document.getElementById('matchBad').textContent = stats.match_distribution.bad || 0;
+  document.getElementById('matchImprove').textContent = stats.match_distribution.improve || 0;
 }
+
 
 // 차트 업데이트
 function updateCharts(stats, days) {
