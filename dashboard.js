@@ -1,4 +1,4 @@
-// dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용) - mrk2
+// dashboard.js - 투어비스 통합 대시보드 JavaScript (실제 API 전용) - mrk2 수정
 
 // 설정 - Goorm 공개 도메인 사용
 const API_BASE_URL = window.location.hostname === 'chad0920kim.github.io' 
@@ -435,11 +435,11 @@ async function refreshData() {
 }
 
 async function refreshConversationData() {
-  const days = parseInt(document.getElementById('conversationDaysSelect').value);
-  const data = await fetchConversations(days, 100);
+    const days = parseInt(document.getElementById('conversationDaysSelect').value);
+    const data = await fetchConversations(days, 100);
 
-  updateConversationStats(data);  // 이 호출에서 stats fallback 처리
-  updateConversationCharts(data); // 동일 data로 차트 그려서 일치
+    updateConversationStats(data);
+    updateConversationCharts(data);
 }
 
 // 통계 UI 업데이트
@@ -467,37 +467,35 @@ function updateStatsDisplay(stats) {
 }
 
 function updateConversationStats(data) {
-  let stats = data.stats;
-
-  if (!stats || !stats.match_distribution) {
+    let stats = data.stats;
     const conversations = data.conversations || [];
-    stats = {
-      total_conversations: conversations.length,
-      unique_sessions: new Set(conversations.map(conv => conv.session_id)).size,
-      match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }
-    };
 
-    conversations.forEach(conv => {
-      const status = conv.match_status;
-      if (status === 1.0 || status === '1.0') stats.match_distribution.good++;
-      else if (status === 0.0 || status === '0.0') stats.match_distribution.bad++;
-      else if (status === 0.5 || status === '0.5') stats.match_distribution.improve++;
-      else stats.match_distribution.none++;
-    });
-  }
+    if (!stats || !stats.match_distribution) {
+        stats = {
+            total_conversations: conversations.length,
+            unique_sessions: new Set(conversations.map(conv => conv.session_id || conv.chat_id)).size,
+            match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }
+        };
 
-  globalConversationStats = stats;
-  globalConversations = data.conversations || [];
+        conversations.forEach(conv => {
+            const status = conv.match_status;
+            if (status === 1.0 || status === '1.0') stats.match_distribution.good++;
+            else if (status === 0.0 || status === '0.0') stats.match_distribution.bad++;
+            else if (status === 0.5 || status === '0.5') stats.match_distribution.improve++;
+            else stats.match_distribution.none++;
+        });
+    }
 
-  document.getElementById('totalConversations').textContent = stats.total_conversations || 0;
-  document.getElementById('totalSessions').textContent = stats.unique_sessions || 0;
-  document.getElementById('matchGood').textContent = stats.match_distribution.good || 0;
-  document.getElementById('matchBad').textContent = stats.match_distribution.bad || 0;
-  document.getElementById('matchImprove').textContent = stats.match_distribution.improve || 0;
+    globalConversationStats = stats;
+    globalConversations = conversations;
+
+    // 세션 수를 메인 지표로 변경
+    document.getElementById('totalConversations').textContent = stats.unique_sessions || 0;
+    document.getElementById('totalSessions').textContent = stats.unique_sessions || 0;
+    document.getElementById('matchGood').textContent = stats.match_distribution.good || 0;
+    document.getElementById('matchBad').textContent = stats.match_distribution.bad || 0;
+    document.getElementById('matchImprove').textContent = stats.match_distribution.improve || 0;
 }
-
-
-
 
 // 차트 업데이트
 function updateCharts(stats, days) {
@@ -615,28 +613,26 @@ function updateCharts(stats, days) {
 }
 
 function updateConversationCharts() {
-  const conversations = globalConversations || [];
+    const conversations = globalConversations || [];
+    const stats = globalConversationStats || {};
     
-    // 매치 상태 차트
+    // 매치 상태 차트 - 실제 데이터와 동기화
     if (matchStatusChart) matchStatusChart.destroy();
     
     const matchCtx = document.getElementById('matchStatusChart').getContext('2d');
-    let matchGood = 0, matchBad = 0, matchImprove = 0, noMatch = 0;
-    
-    conversations.forEach(conv => {
-        const status = conv.match_status;
-        if (status === 1.0) matchGood++;
-        else if (status === 0.0) matchBad++;
-        else if (status === 0.5) matchImprove++;
-        else noMatch++;
-    });
+    const matchData = stats.match_distribution || { good: 0, bad: 0, improve: 0, none: 0 };
     
     matchStatusChart = new Chart(matchCtx, {
         type: 'pie',
         data: {
             labels: ['매치⭕️', '매치✖️', '보강➡️', '미평가'],
             datasets: [{
-                data: [matchGood, matchBad, matchImprove, noMatch],
+                data: [
+                    matchData.good,
+                    matchData.bad,
+                    matchData.improve,
+                    matchData.none
+                ],
                 backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#6c757d'],
                 borderWidth: 2,
                 borderColor: '#fff'
@@ -653,17 +649,29 @@ function updateConversationCharts() {
         }
     });
 
-    // Q&A 시간 추이 차트
+    // Q&A 시간별 추이 차트 - 실제 데이터 기반
     if (qaTimeChart) qaTimeChart.destroy();
     
     const timeCtx = document.getElementById('qaTimeChart').getContext('2d');
+    
+    // 요일별 Q&A 수 계산
+    const weeklyData = [0, 0, 0, 0, 0, 0, 0]; // 월-일
+    conversations.forEach(conv => {
+        if (conv.timestamp) {
+            const date = new Date(conv.timestamp);
+            const dayOfWeek = date.getDay(); // 0=일요일, 1=월요일, ...
+            const mappedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 월요일을 0으로 변환
+            weeklyData[mappedDay]++;
+        }
+    });
+    
     qaTimeChart = new Chart(timeCtx, {
         type: 'bar',
         data: {
             labels: ['월', '화', '수', '목', '금', '토', '일'],
             datasets: [{
                 label: 'Q&A 수',
-                data: [0, 0, 0, 0, 0, 0, 0],
+                data: weeklyData,
                 backgroundColor: '#17a2b8',
                 borderColor: '#138496',
                 borderWidth: 1
@@ -819,3 +827,50 @@ function displayFeedback(feedbackList) {
                 </div>
             </div>
         `;
+    }).join('');
+    
+    container.innerHTML = html;
+}
+
+// 답변 토글 함수
+function toggleAnswer(index) {
+    const answerElement = document.getElementById(`answer_${index}`);
+    const toggleText = document.getElementById(`toggle_text_${index}`);
+    
+    if (answerElement.classList.contains('collapsed')) {
+        answerElement.classList.remove('collapsed');
+        toggleText.textContent = '접기';
+    } else {
+        answerElement.classList.add('collapsed');
+        toggleText.textContent = '더보기';
+    }
+}
+
+// 에러 표시 함수
+function showError(message) {
+    const container = document.getElementById('feedbackList');
+    container.innerHTML = `<div class="error">${message}</div>`;
+}
+
+// 초기화 함수
+async function initializeDashboard() {
+    console.log('🚀 대시보드 초기화 시작');
+    
+    // API 연결 테스트
+    const isConnected = await testApiConnection();
+    
+    if (isConnected) {
+        // Q&A 데이터 미리 로드
+        await loadQAData();
+        
+        // 초기 데이터 로드
+        await refreshData();
+        await refreshConversationData();
+    } else {
+        console.warn('⚠️ API 연결 실패 - 오프라인 모드');
+        showError('API 서버에 연결할 수 없습니다. 서버 상태를 확인해주세요.');
+    }
+}
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', initializeDashboard);
