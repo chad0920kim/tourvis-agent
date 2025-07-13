@@ -429,6 +429,18 @@
             margin: 20px 0;
         }
 
+        /* 🆕 디버그 정보 스타일 추가 */
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #495057;
+        }
+
         @media (max-width: 768px) {
             .dashboard-container {
                 padding: 15px;
@@ -657,6 +669,45 @@
         let globalQAData = [];
 
         // ======================
+        // 🔧 피드백 타입 추출 함수 (새로 추가)
+        // ======================
+        function extractFeedbackType(feedback) {
+            console.log('🔍 피드백 타입 추출:', {
+                feedback_id: feedback.feedback_id,
+                chat_id: feedback.chat_id,
+                feedback: feedback.feedback,
+                extracted_type: feedback.extracted_type
+            });
+            
+            // 1. 서버에서 이미 추출된 타입이 있으면 사용
+            if (feedback.extracted_type) {
+                return feedback.extracted_type;
+            }
+            
+            // 2. chat_id 필드 사용 (가장 신뢰할 만함)
+            if (feedback.chat_id === 'positive' || feedback.chat_id === 'negative') {
+                return feedback.chat_id;
+            }
+            
+            // 3. feedback_id에서 positive/negative 추출
+            if (feedback.feedback_id) {
+                if (feedback.feedback_id.includes('_positive')) {
+                    return 'positive';
+                } else if (feedback.feedback_id.includes('_negative')) {
+                    return 'negative';
+                }
+            }
+            
+            // 4. feedback 필드가 실제로 positive/negative인 경우 (드물지만)
+            if (feedback.feedback === 'positive' || feedback.feedback === 'negative') {
+                return feedback.feedback;
+            }
+            
+            console.warn('⚠️ 피드백 타입을 결정할 수 없음:', feedback);
+            return 'unknown';
+        }
+
+        // ======================
         // 유틸리티 함수들
         // ======================
         function updateConnectionStatus(isConnected, message = '') {
@@ -702,32 +753,6 @@
 
             updateConnectionStatus(false, 'API 서버 미응답');
             return false;
-        }
-
-        async function fetchStats(days = 7) {
-            try {
-                const response = await fetch(API_BASE_URL + '/api/stats?days=' + days, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
-                    signal: AbortSignal.timeout(10000)
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ 통계 데이터 수신:', data);
-                    return data;
-                }
-            } catch (error) {
-                console.warn('⚠️ 통계 요청 실패:', error.message);
-            }
-
-            return {
-                total_feedback: 0,
-                positive: 0,
-                negative: 0,
-                satisfaction_rate: 0,
-                unique_users: 0
-            };
         }
 
         async function fetchFeedback(limit = 50, feedback_type = 'all') {
@@ -1270,7 +1295,7 @@
         }
 
         // ======================
-        // 피드백 관련 함수들
+        // 🔧 수정된 피드백 관련 함수들
         // ======================
         async function loadFeedback(type) {
             type = type || 'all';
@@ -1334,8 +1359,10 @@
                     minute: '2-digit'
                 });
                 
-                const typeClass = feedback.feedback === 'positive' ? 'positive' : 'negative';
-                const typeText = feedback.feedback === 'positive' ? '👍 도움됨' : '👎 아쉬움';
+                // 🔧 수정된 피드백 타입 추출 로직 사용
+                const extractedType = extractFeedbackType(feedback);
+                const typeClass = extractedType === 'positive' ? 'positive' : 'negative';
+                const typeText = extractedType === 'positive' ? '👍 도움됨' : '👎 아쉬움';
                 
                 // Q&A connection status display
                 let qaStatus = '';
@@ -1356,6 +1383,15 @@
                     matchStatusText = matchLabels[feedback.match_status] || '<span style="color: #6c757d;">- 미평가</span>';
                 }
                 
+                // 🆕 디버그 정보 추가 (개발자 확인용)
+                const debugInfo = '<div class="debug-info">' +
+                    '🔍 추출된 타입: ' + extractedType + ' | ' +
+                    '📋 chat_id: ' + (feedback.chat_id || 'null') + ' | ' +
+                    '📝 feedback: ' + (feedback.feedback || 'null') + ' | ' +
+                    '🆔 feedback_id: ' + (feedback.feedback_id || 'null') + ' | ' +
+                    '⚙️ extracted_type: ' + (feedback.extracted_type || 'null') +
+                '</div>';
+                
                 return '<div class="data-item ' + typeClass + '">' +
                     '<div class="data-meta">' +
                         '<div style="display: flex; align-items: center; gap: 10px;">' +
@@ -1375,11 +1411,12 @@
                             '</button>' : ''
                         ) +
                     '</div>' +
+                    debugInfo +
                     '<div class="data-details">' +
                         '💬 Chat ID: ' + (feedback.chat_id || feedback.feedback || 'unknown') + ' | ' +
                         '🌐 IP: ' + (feedback.client_ip || 'unknown') + ' | ' +
                         '🆔 피드백 ID: ' + (feedback.feedback_id || 'unknown') + ' | ' +
-                        '📊 타입: ' + (feedback.feedback || 'unknown') + ' | ' +
+                        '📊 원본 타입: ' + (feedback.feedback || 'unknown') + ' | ' +
                         qaStatus +
                         (feedback.qa_id ? ' | 🔗 Q&A ID: ' + feedback.qa_id : '') +
                     '</div>' +
@@ -1426,7 +1463,7 @@
         // 이벤트 리스너 및 초기화
         // ======================
         async function initializeDashboard() {
-            console.log('🚀 대시보드 초기화 시작');
+            console.log('🚀 대시보드 초기화 시작 (v2.1 - 피드백 분류 수정)');
             
             const isConnected = await testApiConnection();
             
@@ -1463,7 +1500,33 @@
             }
         });
 
-        console.log('🚀 투어비스 고객센터 에이전트 대시보드 초기화 완료');
+        console.log('🚀 투어비스 고객센터 에이전트 대시보드 초기화 완료 (피드백 분류 로직 수정됨)');
     </script>
 </body>
-</html>
+</html>Stats(days = 7) {
+            try {
+                const response = await fetch(API_BASE_URL + '/api/stats?days=' + days, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: AbortSignal.timeout(10000)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ 통계 데이터 수신:', data);
+                    return data;
+                }
+            } catch (error) {
+                console.warn('⚠️ 통계 요청 실패:', error.message);
+            }
+
+            return {
+                total_feedback: 0,
+                positive: 0,
+                negative: 0,
+                satisfaction_rate: 0,
+                unique_users: 0
+            };
+        }
+
+        async function fetch
