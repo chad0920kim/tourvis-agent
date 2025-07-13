@@ -940,9 +940,621 @@
         });
 
         // ======================
-        // 나머지 기존 함수들은 동일하므로 생략...
-        // (updateFeedbackStats, updateConversationStats, 차트 관련 함수들 등)
+        // 데이터 처리 및 표시 함수들
         // ======================
+        
+        function enrichFeedbackWithQA(feedbackData, qaData) {
+            if (!isAuthenticated()) {
+                logout();
+                return [];
+            }
+
+            console.log('🔍 피드백-Q&A 연결 시작');
+            console.log('📝 피드백 데이터 수:', feedbackData.length);
+            console.log('💬 Q&A 데이터 수:', qaData.length);
+            
+            return feedbackData.map((feedback, index) => {
+                const chatId = feedback.feedback || feedback.chat_id;
+                const relatedQAs = qaData.filter(qa => qa.chat_id === chatId);
+                
+                if (relatedQAs.length > 0) {
+                    const latestQA = relatedQAs.sort((a, b) => {
+                        return new Date(b.timestamp) - new Date(a.timestamp);
+                    })[0];
+                    
+                    return {
+                        ...feedback,
+                        question: latestQA.question || feedback.question || '',
+                        answer: latestQA.answer || feedback.answer || '',
+                        qa_id: latestQA.id,
+                        match_status: latestQA.match_status,
+                        hasQAData: true,
+                        qaCount: relatedQAs.length
+                    };
+                }
+                
+                return {
+                    ...feedback,
+                    question: feedback.question || '',
+                    answer: feedback.answer || '',
+                    hasQAData: false,
+                    qaCount: 0
+                };
+            });
+        }
+
+        async function loadQAData() {
+            if (!isAuthenticated()) {
+                logout();
+                return [];
+            }
+
+            try {
+                const data = await fetchConversations(30, 1000);
+                globalQAData = data.conversations || [];
+                allQAData = globalQAData;
+                console.log('✅ Q&A 데이터 로드 완료:', globalQAData.length + '개');
+                return globalQAData;
+            } catch (error) {
+                console.warn('⚠️ Q&A 데이터 로드 실패:', error);
+                globalQAData = [];
+                allQAData = [];
+                return [];
+            }
+        }
+
+        function calculateResponseRate(feedbackCount, qaCount) {
+            if (qaCount === 0) return 0;
+            return Math.round((feedbackCount / qaCount) * 100);
+        }
+
+        async function loadFeedback(type) {
+            if (!isAuthenticated()) {
+                logout();
+                return;
+            }
+
+            type = type || 'all';
+            currentFeedbackFilter = type;
+            
+            document.querySelectorAll('.data-filters button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(type === 'all' ? 'allBtn' : type + 'Btn').classList.add('active');
+
+            document.getElementById('feedbackList').innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
+
+            const limit = parseInt(document.getElementById('limitSelect').value);
+            
+            try {
+                const [feedbackData, qaData] = await Promise.all([
+                    fetchFeedback(limit, type),
+                    globalQAData.length > 0 ? Promise.resolve(globalQAData) : loadQAData()
+                ]);
+                
+                console.log('📊 피드백 데이터 로드 결과:', {
+                    filter_type: type,
+                    feedback_count: feedbackData.feedback?.length || 0,
+                    qa_count: qaData.length
+                });
+                
+                const enrichedFeedback = enrichFeedbackWithQA(feedbackData.feedback || [], qaData);
+                
+                allFeedbackData = enrichedFeedback;
+                displayFeedback(enrichedFeedback);
+            } catch (error) {
+                console.error('피드백 로드 실패:', error);
+                showError('피드백 데이터를 불러오는 중 오류가 발생했습니다.');
+            }
+        }
+
+        function displayFeedback(feedbackList) {
+            const container = document.getElementById('feedbackList');
+            const countElement = document.getElementById('feedbackCount');
+            
+            if (!container || !countElement) return;
+
+            console.log('🖥️ 피드백 표시:', {
+                count: feedbackList.length,
+                filter: currentFeedbackFilter
+            });
+            
+            countElement.textContent = feedbackList.length + '개';
+            
+            if (feedbackList.length === 0) {
+                container.innerHTML = '<div class="error">' + 
+                    escapeHtml('표시할 피드백이 없습니다.') + 
+                    '<br><small>필터: ' + escapeHtml(currentFeedbackFilter) + '</small></div>';
+                return;
+            }
+            
+            const htmlParts = feedbackList.map((feedback, index) => {
+                const safeData = {
+                    question: escapeHtml(feedback.question || '질문 정보 없음'),
+                    answer: escapeHtml(feedback.answer || '답변 정보 없음'),
+                    feedback_id: escapeHtml(feedback.feedback_id || 'unknown'),
+                    chat_id: escapeHtml(feedback.chat_id || 'unknown'),
+                    client_ip: feedback.client_ip ? 
+                        escapeHtml(feedback.client_ip).replace(/\d+\.\d+\.\d+\.(\d+)/, '***.***.***.$1')
+                        : 'unknown'
+                };
+
+                const date = new Date(feedback.timestamp).toLocaleDateString('ko-KR', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                
+                const extractedType = extractFeedbackType(feedback);
+                const typeClass = extractedType === 'positive' ? 'positive' : 'negative';
+                const typeText = extractedType === 'positive' ? '👍 도움됨' : '👎 아쉬움';
+                
+                let qaStatus = '';
+                if (feedback.hasQAData) {
+                    qaStatus = '<span style="color: #28a745; font-weight: 600;">✓ Q&A 연결됨 (' + escapeHtml(String(feedback.qaCount)) + '건)</span>';
+                } else {
+                    qaStatus = '<span style="color: #dc3545;">○ Q&A 미연결</span>';
+                }
+                
+                let matchStatusText = '';
+                if (feedback.hasQAData && feedback.match_status !== undefined) {
+                    const matchLabels = {
+                        1.0: '<span style="color: #28a745;">⭕️ 매치</span>',
+                        0.0: '<span style="color: #dc3545;">✖️ 매치 안됨</span>',
+                        0.5: '<span style="color: #ffc107;">➡️ 보강 필요</span>'
+                    };
+                    matchStatusText = matchLabels[feedback.match_status] || '<span style="color: #6c757d;">- 미평가</span>';
+                }
+                
+                const debugInfo = '<div class="debug-info">' +
+                    '🔍 추출된 타입: ' + escapeHtml(extractedType) + ' | ' +
+                    '📋 chat_id: ' + escapeHtml(feedback.chat_id || 'null') + ' | ' +
+                    '📝 feedback: ' + escapeHtml(feedback.feedback || 'null') + ' | ' +
+                    '🆔 feedback_id: ' + escapeHtml(feedback.feedback_id || 'null') + ' | ' +
+                    '⚙️ extracted_type: ' + escapeHtml(feedback.extracted_type || 'null') +
+                '</div>';
+                
+                return '<div class="data-item ' + typeClass + '">' +
+                    '<div class="data-meta">' +
+                        '<div style="display: flex; align-items: center; gap: 10px;">' +
+                            '<span class="data-type ' + typeClass + '">' + typeText + '</span>' +
+                            matchStatusText +
+                        '</div>' +
+                        '<span>' + escapeHtml(date) + '</span>' +
+                    '</div>' +
+                    '<div class="data-content">' +
+                        '<div class="question">❓ ' + safeData.question + '</div>' +
+                        '<div class="answer ' + (index < 5 ? '' : 'collapsed') + '" id="answer_' + index + '">' +
+                            safeData.answer +
+                        '</div>' +
+                        (feedback.answer && feedback.answer.length > 200 ? 
+                            '<button class="expand-toggle" onclick="toggleAnswer(' + index + ')">' +
+                                '<span id="toggle_text_' + index + '">' + (index < 5 ? '접기' : '더보기') + '</span>' +
+                            '</button>' : ''
+                        ) +
+                    '</div>' +
+                    debugInfo +
+                    '<div class="data-details">' +
+                        '💬 Chat ID: ' + safeData.chat_id + ' | ' +
+                        '🌐 IP: ' + safeData.client_ip + ' | ' +
+                        '🆔 피드백 ID: ' + safeData.feedback_id + ' | ' +
+                        '📊 원본 타입: ' + escapeHtml(feedback.feedback || 'unknown') + ' | ' +
+                        qaStatus +
+                        (feedback.qa_id ? ' | 🔗 Q&A ID: ' + escapeHtml(feedback.qa_id) : '') +
+                    '</div>' +
+                '</div>';
+            });
+            
+            container.innerHTML = htmlParts.join('');
+        }
+
+        // ======================
+        // 통계 업데이트 함수들
+        // ======================
+        
+        function updateFeedbackStats(stats, conversationData) {
+            const elements = {
+                totalFeedback: stats.total_feedback || 0,
+                positiveFeedback: stats.positive || 0,
+                negativeFeedback: stats.negative || 0,
+                uniqueUsers: stats.unique_users || 0,
+                satisfactionRate: (stats.satisfaction_rate || 0) + '%',
+                totalQA: stats.total_qa || 0,
+                responseRate: (stats.response_rate || 0) + '%'
+            };
+
+            Object.entries(elements).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                }
+            });
+            
+            const participationRate = stats.unique_users > 0 
+                ? (stats.total_feedback / stats.unique_users).toFixed(2)
+                : '0.00';
+            
+            const participationElement = document.getElementById('participationRate');
+            if (participationElement) {
+                participationElement.textContent = participationRate + '회';
+            }
+        }
+
+        function updateConversationStats(conversationData) {
+            const stats = conversationData.stats || {};
+            const matchDistribution = stats.match_distribution || {};
+            
+            const elements = {
+                totalConversations: stats.unique_sessions || 0,
+                matchGood: matchDistribution.good || 0,
+                matchBad: matchDistribution.bad || 0,
+                matchImprove: matchDistribution.improve || 0,
+                matchNone: matchDistribution.none || 0
+            };
+
+            Object.entries(elements).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = value;
+                }
+            });
+        }
+
+        // ======================
+        // 차트 업데이트 함수들
+        // ======================
+        
+        function updateFeedbackCharts(data, days) {
+            if (!isAuthenticated()) {
+                logout();
+                return;
+            }
+
+            const stats = data.stats;
+            
+            if (charts.trendChart) charts.trendChart.destroy();
+            if (charts.avgChart) charts.avgChart.destroy();
+            if (charts.responseRateChart) charts.responseRateChart.destroy();
+
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            const trendLabels = generateTimeLabels(days);
+            const trendData = generateTrendData(stats, days);
+
+            charts.trendChart = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [{
+                        label: '👍 도움됨',
+                        data: trendData.positive,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: '👎 아쉬움',
+                        data: trendData.negative,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+
+            const avgCtx = document.getElementById('avgChart').getContext('2d');
+            charts.avgChart = new Chart(avgCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['👍 도움됨', '👎 아쉬움'],
+                    datasets: [{
+                        data: [stats.positive || 0, stats.negative || 0],
+                        backgroundColor: ['#28a745', '#dc3545'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            const responseCtx = document.getElementById('responseRateChart').getContext('2d');
+            const responseRateData = generateResponseRateData(allFeedbackData, allQAData, days);
+            
+            charts.responseRateChart = new Chart(responseCtx, {
+                type: 'bar',
+                data: {
+                    labels: trendLabels,
+                    datasets: [{
+                        label: '피드백 응답률 (%)',
+                        data: responseRateData,
+                        backgroundColor: '#17a2b8',
+                        borderColor: '#138496',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                stepSize: 10,
+                                callback: function(value) { return value + '%'; }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateConversationCharts(conversationData) {
+            if (!isAuthenticated()) {
+                logout();
+                return;
+            }
+
+            const conversations = conversationData.conversations || [];
+            const stats = conversationData.stats || {};
+            
+            if (charts.matchStatusChart) charts.matchStatusChart.destroy();
+            
+            const matchCtx = document.getElementById('matchStatusChart').getContext('2d');
+            const matchData = stats.match_distribution || { good: 0, bad: 0, improve: 0, none: 0 };
+            
+            charts.matchStatusChart = new Chart(matchCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['✅ 매치', '❌ 매치안됨', '⚠️ 보강필요', '❓ 미평가'],
+                    datasets: [{
+                        data: [matchData.good || 0, matchData.bad || 0, matchData.improve || 0, matchData.none || 0],
+                        backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#6c757d'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return label + ': ' + value + '명 (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (charts.qaTimeChart) charts.qaTimeChart.destroy();
+            
+            const timeCtx = document.getElementById('qaTimeChart').getContext('2d');
+            const weeklyData = [0, 0, 0, 0, 0, 0, 0];
+            
+            conversations.forEach(conv => {
+                if (conv.timestamp) {
+                    try {
+                        const date = new Date(conv.timestamp);
+                        const dayOfWeek = date.getDay();
+                        const mappedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                        if (mappedDay >= 0 && mappedDay < 7) {
+                            weeklyData[mappedDay]++;
+                        }
+                    } catch (e) {
+                        console.warn('날짜 파싱 오류:', conv.timestamp);
+                    }
+                }
+            });
+            
+            charts.qaTimeChart = new Chart(timeCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['월', '화', '수', '목', '금', '토', '일'],
+                    datasets: [{
+                        label: '사용자 수',
+                        data: weeklyData,
+                        backgroundColor: '#17a2b8',
+                        borderColor: '#138496',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
+
+        // ======================
+        // 헬퍼 함수들
+        // ======================
+        
+        function generateTimeLabels(days) {
+            const labels = [];
+            const now = new Date();
+            
+            for (let i = days - 1; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+                
+                if (days <= 7) {
+                    labels.push(date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }));
+                } else {
+                    labels.push(date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }));
+                }
+            }
+            
+            return labels;
+        }
+
+        function generateTrendData(stats, days) {
+            const positive = [];
+            const negative = [];
+            
+            const avgPositive = Math.floor((stats.positive || 0) / days);
+            const avgNegative = Math.floor((stats.negative || 0) / days);
+            
+            for (let i = 0; i < days; i++) {
+                positive.push(avgPositive);
+                negative.push(avgNegative);
+            }
+            
+            return { positive, negative };
+        }
+
+        function generateResponseRateData(feedbackData, qaData, days) {
+            const responseRates = [];
+            const now = new Date();
+            
+            for (let i = days - 1; i >= 0; i--) {
+                const targetDate = new Date(now);
+                targetDate.setDate(targetDate.getDate() - i);
+                const dateStr = targetDate.toDateString();
+                
+                const dayFeedback = feedbackData.filter(fb => {
+                    const fbDate = new Date(fb.timestamp);
+                    return fbDate.toDateString() === dateStr;
+                }).length;
+                
+                const dayQA = qaData.filter(qa => {
+                    const qaDate = new Date(qa.timestamp);
+                    return qaDate.toDateString() === dateStr;
+                }).length;
+                
+                const responseRate = calculateResponseRate(dayFeedback, dayQA);
+                responseRates.push(responseRate);
+            }
+            
+            return responseRates;
+        }
+
+        // ======================
+        // UI 헬퍼 함수들
+        // ======================
+        
+        function toggleAnswer(index) {
+            const answer = document.getElementById('answer_' + index);
+            const toggleText = document.getElementById('toggle_text_' + index);
+            
+            if (!answer || !toggleText) return;
+            
+            if (answer.classList.contains('collapsed')) {
+                answer.classList.remove('collapsed');
+                toggleText.textContent = '접기';
+            } else {
+                answer.classList.add('collapsed');
+                toggleText.textContent = '더보기';
+            }
+        }
+
+        function expandAllAnswers() {
+            document.querySelectorAll('#feedbackList .answer').forEach(answer => {
+                answer.classList.remove('collapsed');
+            });
+            document.querySelectorAll('#feedbackList .expand-toggle span').forEach(span => {
+                span.textContent = '접기';
+            });
+        }
+
+        function collapseAllAnswers() {
+            document.querySelectorAll('#feedbackList .answer').forEach(answer => {
+                answer.classList.add('collapsed');
+            });
+            document.querySelectorAll('#feedbackList .expand-toggle span').forEach(span => {
+                span.textContent = '더보기';
+            });
+        }
+
+        // ======================
+        // 🚀 대시보드 초기화 함수
+        // ======================
+        
+        async function initializeDashboard() {
+            if (!isAuthenticated()) {
+                logout();
+                return;
+            }
+
+            console.log('🚀 보안 강화된 대시보드 초기화 시작');
+            
+            const isConnected = await testApiConnection();
+            
+            if (isConnected) {
+                await loadQAData();
+                await refreshData();
+            } else {
+                console.warn('⚠️ API 연결 실패 - 오프라인 모드');
+                showError('API 서버에 연결할 수 없습니다. 서버 상태를 확인해주세요.');
+            }
+        }
+
+        // ======================
+        // 이벤트 리스너 등록
+        // ======================
+        
+        document.getElementById('limitSelect').addEventListener('change', function() {
+            if (isAuthenticated()) {
+                loadFeedback(currentFeedbackFilter);
+            }
+        });
+        
+        document.getElementById('daysSelect').addEventListener('change', function() {
+            if (isAuthenticated()) {
+                refreshData();
+            }
+        });
+        
+        document.getElementById('conversationDaysSelect').addEventListener('change', function() {
+            if (isAuthenticated()) {
+                refreshConversationData();
+            }
+        });
+
+        // 키보드 단축키
+        document.addEventListener('keydown', function(e) {
+            if (!isAuthenticated()) return;
+
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab.id === 'feedbackContent') {
+                    refreshData();
+                } else {
+                    refreshConversationData();
+                }
+            }
+        });
+
+        // 페이지 언로드 시 정리
+        window.addEventListener('beforeunload', function() {
+            if (sessionTimeout) {
+                clearTimeout(sessionTimeout);
+            }
+            if (tokenRefreshInterval) {
+                clearInterval(tokenRefreshInterval);
+            }
+        });
 
         console.log('🔒 서버 사이드 인증 시스템 초기화 완료');
     </script>
