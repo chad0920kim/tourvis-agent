@@ -566,10 +566,10 @@
             // Q&A 통계는 별도 엔드포인트에서 가져온 데이터 사용
             if (currentData.conversations) {
                 const qaStats = currentData.conversations.stats || {};
-                document.getElementById('totalQA').textContent = qaStats.total_conversations || 0;
+                document.getElementById('totalQA').textContent = qaStats.unique_sessions || 0;
                 
-                const responseRate = qaStats.total_conversations > 0 
-                    ? Math.round((stats.total_feedback / qaStats.total_conversations) * 100)
+                const responseRate = qaStats.unique_sessions > 0 
+                    ? Math.round((stats.total_feedback / qaStats.unique_sessions) * 100)
                     : 0;
                 document.getElementById('responseRate').textContent = responseRate + '%';
             }
@@ -620,8 +620,8 @@
             if (charts.responseChart) charts.responseChart.destroy();
             
             const responseCtx = document.getElementById('responseChart').getContext('2d');
-            const responseRate = currentData.conversations?.stats?.total_conversations > 0 
-                ? Math.round((stats.total_feedback / currentData.conversations.stats.total_conversations) * 100)
+            const responseRate = currentData.conversations?.stats?.unique_sessions > 0 
+                ? Math.round((stats.total_feedback / currentData.conversations.stats.unique_sessions) * 100)
                 : 0;
                 
             charts.responseChart = new Chart(responseCtx, {
