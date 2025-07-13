@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 고객센터 에이전트 대시보드</title>
+    <title>투어비스 고객센터 에이전트 대시보드 MRK2</title>
     <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -470,7 +470,7 @@
 <body>
     <div class="dashboard-container">
         <div class="header">
-            <h1><i class="fas fa-chart-line"></i> 투어비스 고객센터 에이전트 대시보드</h1>
+            <h1><i class="fas fa-chart-line"></i> 투어비스 고객센터 에이전트 대시보드 MRK2</h1>
             <div class="connection-status disconnected" id="connectionStatus">
                 <span id="connectionText">API 연결 확인 중...</span>
             </div>
@@ -755,7 +755,33 @@
             return false;
         }
 
-        async function fetchFeedback(limit = 50, feedback_type = 'all') {
+        async function fetchStats(days = 7) {
+            try {
+                const response = await fetch(API_BASE_URL + '/api/stats?days=' + days, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: AbortSignal.timeout(10000)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ 통계 데이터 수신:', data);
+                    return data;
+                }
+            } catch (error) {
+                console.warn('⚠️ 통계 요청 실패:', error.message);
+            }
+
+            return {
+                total_feedback: 0,
+                positive: 0,
+                negative: 0,
+                satisfaction_rate: 0,
+                unique_users: 0
+            };
+        }
+
+        async function fetchFeedback(limit = 50, feedback_type = 'all') {Feedback(limit = 50, feedback_type = 'all') {
             const endpoints = [
                 '/api/feedback',
                 '/admin/feedback', 
@@ -1500,7 +1526,7 @@
             }
         });
 
-        console.log('🚀 투어비스 고객센터 에이전트 대시보드 초기화 완료 (피드백 분류 로직 수정됨)');
+        console.log('🚀 투어비스 고객센터 에이전트 대시보드 MRK2 초기화 완료 (피드백 분류 로직 수정됨)');
     </script>
 </body>
 </html>Stats(days = 7) {
