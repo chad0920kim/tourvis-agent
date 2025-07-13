@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 통합 대시보드 mrk7</title>
+    <title>투어비스 통합 대시보드 mrk8</title>
     <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -266,7 +266,7 @@
 <body>
     <div class="dashboard-container">
         <div class="header">
-            <h1><i class="fas fa-chart-line"></i> 투어비스 통합 대시보드 (mrk7)</h1>
+            <h1><i class="fas fa-chart-line"></i> 투어비스 통합 대시보드 (mrk8)</h1>
             <div class="connection-status disconnected" id="connectionStatus">
                 <span id="connectionText">API 연결 확인 중...</span>
             </div>
@@ -578,10 +578,31 @@
         function updateConversationStats(conversationData) {
             const stats = conversationData.stats || {};
             
+            console.log('🔍 대화 통계 업데이트:', {
+                total_conversations: conversationData.conversations?.length,
+                unique_sessions: stats.unique_sessions,
+                match_distribution: stats.match_distribution
+            });
+            
             document.getElementById('totalConversations').textContent = stats.unique_sessions || 0;
             document.getElementById('matchGood').textContent = stats.match_distribution?.good || 0;
             document.getElementById('matchBad').textContent = stats.match_distribution?.bad || 0;
             document.getElementById('matchImprove').textContent = stats.match_distribution?.improve || 0;
+            
+            // 매치 합계 검증
+            const matchTotal = (stats.match_distribution?.good || 0) + 
+                              (stats.match_distribution?.bad || 0) + 
+                              (stats.match_distribution?.improve || 0) + 
+                              (stats.match_distribution?.none || 0);
+            
+            console.log('📊 매치 상태 검증:', {
+                good: stats.match_distribution?.good || 0,
+                bad: stats.match_distribution?.bad || 0,
+                improve: stats.match_distribution?.improve || 0,
+                none: stats.match_distribution?.none || 0,
+                total: matchTotal,
+                sessions: stats.unique_sessions
+            });
         }
 
         // ======================
@@ -804,7 +825,7 @@
             }
         });
 
-        console.log('🚀 투어비스 통합 대시보드 초기화 완료 (mrk7 - 경량화 버전)');
+        console.log('🚀 투어비스 통합 대시보드 초기화 완료 (mrk8 - 경량화 버전)');
     </script>
 </body>
 </html>
