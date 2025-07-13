@@ -362,6 +362,7 @@
         
         async function login(username, password) {
             try {
+                console.log('🔐 서버 로그인 요청:', username);
                 const response = await fetch(API_BASE_URL + '/auth/login', {
                     method: 'POST',
                     headers: {
@@ -375,21 +376,31 @@
 
                 if (!response.ok) {
                     const error = await response.json();
+                    console.error('❌ 서버 로그인 실패:', error);
                     throw new Error(error.detail || '로그인에 실패했습니다');
                 }
 
                 const data = await response.json();
+                console.log('✅ 서버 로그인 성공:', data);
                 
                 // 토큰 및 사용자 정보 저장
                 setAuthToken(data.access_token);
                 currentUser = data.user_info;
                 localStorage.setItem('dashboard_user', JSON.stringify(currentUser));
                 
-                console.log('✅ 로그인 성공:', currentUser);
+                console.log('💾 토큰 및 사용자 정보 저장 완료:', {
+                    username: currentUser.username,
+                    role: currentUser.role,
+                    token_length: data.access_token.length
+                });
                 
                 // 토큰 자동 갱신 설정 (만료 5분 전)
                 const refreshTime = (data.expires_in - 300) * 1000; // 25분
+                if (tokenRefreshInterval) {
+                    clearInterval(tokenRefreshInterval);
+                }
                 tokenRefreshInterval = setInterval(refreshToken, refreshTime);
+                console.log('⏰ 토큰 자동 갱신 설정 완료 (', refreshTime / 1000 / 60, '분 후)');
                 
                 return true;
             } catch (error) {
@@ -468,28 +479,60 @@
         }
 
         function showAuthModal() {
-            document.getElementById('authModal').style.display = 'flex';
-            document.getElementById('dashboardContainer').style.display = 'none';
+            console.log('🔐 인증 모달 표시');
+            const authModal = document.getElementById('authModal');
+            const dashboardContainer = document.getElementById('dashboardContainer');
+            
+            if (authModal) {
+                authModal.style.display = 'flex';
+            }
+            if (dashboardContainer) {
+                dashboardContainer.style.display = 'none';
+            }
         }
 
         function hideAuthModal() {
-            document.getElementById('authModal').style.display = 'none';
-            document.getElementById('dashboardContainer').style.display = 'block';
+            console.log('✅ 인증 모달 숨김, 대시보드 표시');
+            const authModal = document.getElementById('authModal');
+            const dashboardContainer = document.getElementById('dashboardContainer');
+            
+            if (authModal) {
+                authModal.style.display = 'none';
+            }
+            if (dashboardContainer) {
+                dashboardContainer.style.display = 'block';
+            }
+            
+            // 포커스를 대시보드로 이동
+            if (dashboardContainer) {
+                dashboardContainer.focus();
+            }
         }
 
         function updateUserInfo() {
-            if (!currentUser) return;
+            if (!currentUser) {
+                console.warn('⚠️ currentUser가 없음');
+                return;
+            }
+
+            console.log('👤 사용자 정보 업데이트:', currentUser);
 
             const userElement = document.getElementById('currentUser');
             const roleElement = document.getElementById('userRole');
 
             if (userElement) {
                 userElement.textContent = currentUser.username;
+                console.log('✅ 사용자명 업데이트:', currentUser.username);
+            } else {
+                console.warn('⚠️ currentUser 엘리먼트 없음');
             }
 
             if (roleElement) {
                 roleElement.textContent = currentUser.role;
                 roleElement.className = `user-role role-${currentUser.role}`;
+                console.log('✅ 역할 업데이트:', currentUser.role);
+            } else {
+                console.warn('⚠️ userRole 엘리먼트 없음');
             }
 
             // 관리자 탭 표시/숨김
@@ -497,8 +540,10 @@
             if (adminTab) {
                 if (currentUser.permissions && currentUser.permissions.includes('admin')) {
                     adminTab.style.display = 'block';
+                    console.log('🔧 관리자 탭 표시');
                 } else {
                     adminTab.style.display = 'none';
+                    console.log('🚫 관리자 탭 숨김');
                 }
             }
         }
@@ -908,6 +953,7 @@
                     const username = document.getElementById('username').value.trim();
                     const password = document.getElementById('password').value;
                     const errorElement = document.getElementById('authError');
+                    const submitButton = authForm.querySelector('button[type="submit"]');
                     
                     if (!username || !password) {
                         errorElement.textContent = '사용자명과 비밀번호를 입력해주세요.';
@@ -916,25 +962,52 @@
                     }
                     
                     try {
+                        // 로딩 상태 표시
+                        submitButton.disabled = true;
+                        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 로그인 중...';
                         errorElement.style.display = 'none';
+                        
+                        console.log('🔐 로그인 시도:', username);
                         const success = await login(username, password);
+                        
                         if (success) {
+                            console.log('✅ 로그인 성공, UI 업데이트 중...');
+                            
+                            // 사용자 정보 업데이트
                             updateUserInfo();
+                            
+                            // 모달 숨기기 및 대시보드 표시
+                            hideAuthModal();
+                            
+                            // 대시보드 초기화
                             await initializeDashboard();
+                            
+                            console.log('🎉 대시보드 로드 완료');
                         }
                     } catch (error) {
+                        console.error('❌ 로그인 오류:', error);
                         errorElement.textContent = error.message || '로그인에 실패했습니다.';
                         errorElement.style.display = 'block';
+                    } finally {
+                        // 버튼 상태 복구
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i class="fas fa-sign-in-alt"></i> 로그인';
+                        
+                        // 비밀번호 필드 초기화
+                        document.getElementById('password').value = '';
                     }
-                    
-                    document.getElementById('password').value = '';
                 });
             }
 
             // 페이지 로드 시 인증 상태 확인
+            console.log('🔍 페이지 로드 시 인증 상태 확인...');
             checkAuthStatus().then(isAuth => {
+                console.log('🔍 인증 상태:', isAuth);
                 if (isAuth) {
+                    console.log('✅ 기존 인증 유지, 대시보드 초기화...');
                     initializeDashboard();
+                } else {
+                    console.log('🔐 인증 필요, 로그인 모달 표시');
                 }
             });
         });
