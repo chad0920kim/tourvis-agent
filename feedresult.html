@@ -731,22 +731,43 @@
         }
 
         async function fetchFeedback(limit = 50, feedback_type = 'all') {
-            try {
-                const response = await fetch(API_BASE_URL + '/api/feedback?limit=' + limit + '&feedback_type=' + feedback_type, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
-                    signal: AbortSignal.timeout(10000)
-                });
+            const endpoints = [
+                '/api/feedback',
+                '/admin/feedback', 
+                '/feedback'
+            ];
 
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ 피드백 데이터 수신:', data);
-                    return data;
+            for (const endpoint of endpoints) {
+                try {
+                    const url = API_BASE_URL + endpoint + '?limit=' + limit + '&feedback_type=' + feedback_type;
+                    console.log('📝 피드백 데이터 요청:', url);
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' },
+                        signal: AbortSignal.timeout(10000)
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('✅ 피드백 데이터 수신:', {
+                            endpoint: endpoint,
+                            filter: feedback_type,
+                            count: data.feedback?.length || 0,
+                            total: data.total || 0
+                        });
+                        return data;
+                    } else if (response.status !== 404) {
+                        console.warn('⚠️ ' + endpoint + ' 응답 오류:', response.status);
+                    }
+                } catch (error) {
+                    if (!error.message.includes('404')) {
+                        console.warn('⚠️ ' + endpoint + ' 요청 실패:', error.message);
+                    }
                 }
-            } catch (error) {
-                console.warn('⚠️ 피드백 요청 실패:', error.message);
             }
 
+            console.log('📝 모든 피드백 API 엔드포인트 실패 - 빈 데이터 반환');
             return {
                 feedback: [],
                 total: 0
@@ -1254,32 +1275,53 @@
         async function loadFeedback(type) {
             type = type || 'all';
             currentFeedbackFilter = type;
+            
+            // 필터 버튼 활성화 상태 업데이트
             document.querySelectorAll('.data-filters button').forEach(btn => btn.classList.remove('active'));
             document.getElementById(type === 'all' ? 'allBtn' : type + 'Btn').classList.add('active');
 
+            // 로딩 표시
+            document.getElementById('feedbackList').innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
+
             const limit = parseInt(document.getElementById('limitSelect').value);
             
-            // Load feedback and QA data simultaneously
-            const [feedbackData, qaData] = await Promise.all([
-                fetchFeedback(limit, type),
-                globalQAData.length > 0 ? Promise.resolve(globalQAData) : loadQAData()
-            ]);
-            
-            // Enrich feedback data with QA data
-            const enrichedFeedback = enrichFeedbackWithQA(feedbackData.feedback || [], qaData);
-            
-            allFeedbackData = enrichedFeedback;
-            displayFeedback(enrichedFeedback);
+            try {
+                // Load feedback and QA data simultaneously
+                const [feedbackData, qaData] = await Promise.all([
+                    fetchFeedback(limit, type),
+                    globalQAData.length > 0 ? Promise.resolve(globalQAData) : loadQAData()
+                ]);
+                
+                console.log('📊 피드백 데이터 로드 결과:', {
+                    filter_type: type,
+                    feedback_count: feedbackData.feedback?.length || 0,
+                    qa_count: qaData.length
+                });
+                
+                // Enrich feedback data with QA data
+                const enrichedFeedback = enrichFeedbackWithQA(feedbackData.feedback || [], qaData);
+                
+                allFeedbackData = enrichedFeedback;
+                displayFeedback(enrichedFeedback);
+            } catch (error) {
+                console.error('피드백 로드 실패:', error);
+                showError('피드백 데이터를 불러오는 중 오류가 발생했습니다.');
+            }
         }
 
         function displayFeedback(feedbackList) {
             const container = document.getElementById('feedbackList');
             const countElement = document.getElementById('feedbackCount');
             
+            console.log('🖥️ 피드백 표시:', {
+                count: feedbackList.length,
+                filter: currentFeedbackFilter
+            });
+            
             countElement.textContent = feedbackList.length + '개';
             
             if (feedbackList.length === 0) {
-                container.innerHTML = '<div class="error">표시할 피드백이 없습니다.</div>';
+                container.innerHTML = '<div class="error">표시할 피드백이 없습니다.<br><small>필터: ' + currentFeedbackFilter + '</small></div>';
                 return;
             }
             
@@ -1337,6 +1379,7 @@
                         '💬 Chat ID: ' + (feedback.chat_id || feedback.feedback || 'unknown') + ' | ' +
                         '🌐 IP: ' + (feedback.client_ip || 'unknown') + ' | ' +
                         '🆔 피드백 ID: ' + (feedback.feedback_id || 'unknown') + ' | ' +
+                        '📊 타입: ' + (feedback.feedback || 'unknown') + ' | ' +
                         qaStatus +
                         (feedback.qa_id ? ' | 🔗 Q&A ID: ' + feedback.qa_id : '') +
                     '</div>' +
@@ -1420,7 +1463,7 @@
             }
         });
 
-        console.log('🚀 투어비스 통합 대시보드 초기화 완료');
+        console.log('🚀 투어비스 고객센터 에이전트 대시보드 초기화 완료');
     </script>
 </body>
 </html>
