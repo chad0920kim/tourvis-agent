@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 통합 대시보드 mrk6</title>
+    <title>투어비스 통합 대시보드 mrk5</title>
     <link rel="icon" href="data:,">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -266,7 +266,7 @@
 <body>
     <div class="dashboard-container">
         <div class="header">
-            <h1><i class="fas fa-chart-line"></i> 투어비스 통합 대시보드 (mrk6)</h1>
+            <h1><i class="fas fa-chart-line"></i> 투어비스 통합 대시보드 (mrk5)</h1>
             <div class="connection-status disconnected" id="connectionStatus">
                 <span id="connectionText">API 연결 확인 중...</span>
             </div>
@@ -664,11 +664,15 @@
             const conversations = conversationData.conversations || [];
             const stats = conversationData.stats || {};
             
-            // 매치 상태 분포 차트
+            // 매치 상태 분포 차트 - 실제 서버 데이터 사용
             if (charts.matchStatusChart) charts.matchStatusChart.destroy();
             
             const matchCtx = document.getElementById('matchStatusChart').getContext('2d');
             const matchData = stats.match_distribution || { good: 0, bad: 0, improve: 0, none: 0 };
+            
+            // 실제 데이터 로그 출력
+            console.log('📊 매치 상태 데이터:', matchData);
+            console.log('📊 총 세션 수:', stats.unique_sessions);
             
             charts.matchStatusChart = new Chart(matchCtx, {
                 type: 'pie',
@@ -676,10 +680,10 @@
                     labels: ['매치⭕️', '매치✖️', '보강➡️', '미평가'],
                     datasets: [{
                         data: [
-                            matchData.good,
-                            matchData.bad,
-                            matchData.improve,
-                            matchData.none
+                            matchData.good || 0,
+                            matchData.bad || 0,
+                            matchData.improve || 0,
+                            matchData.none || 0
                         ],
                         backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#6c757d'],
                         borderWidth: 2,
@@ -692,26 +696,45 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+                                    return `${label}: ${value}개 (${percentage}%)`;
+                                }
+                            }
                         }
                     }
                 }
             });
 
-            // 요일별 Q&A 추이 차트
+            // 요일별 Q&A 추이 차트 - 실제 데이터 기반
             if (charts.qaTimeChart) charts.qaTimeChart.destroy();
             
             const timeCtx = document.getElementById('qaTimeChart').getContext('2d');
             
-            // 요일별 데이터 계산
+            // 요일별 데이터 계산 (실제 conversations 배열 사용)
             const weeklyData = [0, 0, 0, 0, 0, 0, 0]; // 월-일
             conversations.forEach(conv => {
                 if (conv.timestamp) {
-                    const date = new Date(conv.timestamp);
-                    const dayOfWeek = date.getDay();
-                    const mappedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                    weeklyData[mappedDay]++;
+                    try {
+                        const date = new Date(conv.timestamp);
+                        const dayOfWeek = date.getDay(); // 0=일요일, 1=월요일, ...
+                        const mappedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 월요일=0, 일요일=6
+                        if (mappedDay >= 0 && mappedDay < 7) {
+                            weeklyData[mappedDay]++;
+                        }
+                    } catch (e) {
+                        console.warn('날짜 파싱 오류:', conv.timestamp);
+                    }
                 }
             });
+            
+            console.log('📅 요일별 Q&A 분포:', weeklyData);
             
             charts.qaTimeChart = new Chart(timeCtx, {
                 type: 'bar',
@@ -781,7 +804,7 @@
             }
         });
 
-        console.log('🚀 투어비스 통합 대시보드 초기화 완료 (mrk6 - 경량화 버전)');
+        console.log('🚀 투어비스 통합 대시보드 초기화 완료 (mrk5 - 경량화 버전)');
     </script>
 </body>
 </html>
