@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 고객센터 에이전트 대시보드5</title>
+    <title>투어비스 고객센터 에이전트 대시보드6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -1295,189 +1295,7 @@
             });
         }
 
-        function generateResponseRateData(feedbackData, qaData, days) {
-            const { startDate } = getDateRange(days);
-            const responseRates = [];
-            
-            for (let i = 0; i < days; i++) {
-                const targetDate = new Date(startDate);
-                targetDate.setDate(targetDate.getDate() + i);
-                const nextDate = new Date(targetDate);
-                nextDate.setDate(nextDate.getDate() + 1);
-                
-                const dayFeedback = feedbackData.filter(fb => {
-                    const fbDate = new Date(fb.timestamp);
-                    return fbDate >= targetDate && fbDate < nextDate;
-                }).length;
-                
-                const dayQA = qaData.filter(qa => {
-                    const qaDate = new Date(qa.timestamp);
-                    return qaDate >= targetDate && qaDate < nextDate;
-                }).length;
-                
-                const responseRate = calculateResponseRate(dayFeedback, dayQA);
-                responseRates.push(responseRate);
-            }
-            
-            return responseRates;
-        }
-
-        function toggleAnswer(index) {
-            const answer = document.getElementById('answer_' + index);
-            const toggleText = document.getElementById('toggle_text_' + index);
-            
-            if (!answer || !toggleText) return;
-            
-            if (answer.classList.contains('collapsed')) {
-                answer.classList.remove('collapsed');
-                toggleText.textContent = '접기';
-            } else {
-                answer.classList.add('collapsed');
-                toggleText.textContent = '더보기';
-            }
-        }
-
-        function expandAllAnswers() {
-            document.querySelectorAll('#feedbackList .answer').forEach(answer => {
-                answer.classList.remove('collapsed');
-            });
-            document.querySelectorAll('#feedbackList .expand-toggle span').forEach(span => {
-                span.textContent = '접기';
-            });
-        }
-
-        function collapseAllAnswers() {
-            document.querySelectorAll('#feedbackList .answer').forEach(answer => {
-                answer.classList.add('collapsed');
-            });
-            document.querySelectorAll('#feedbackList .expand-toggle span').forEach(span => {
-                span.textContent = '더보기';
-            });
-        }
-
-        async function initializeDashboard() {
-            if (!isAuthenticated()) {
-                logout();
-                return;
-            }
-
-            console.log('🚀 보안 강화된 대시보드 초기화 시작');
-            
-            const isConnected = await testApiConnection();
-            
-            if (isConnected) {
-                await loadQAData();
-                await refreshData();
-            } else {
-                console.warn('⚠️ API 연결 실패 - 오프라인 모드');
-                showError('API 서버에 연결할 수 없습니다. 서버 상태를 확인해주세요.');
-            }
-        }
-
-        // 이벤트 리스너 등록
-        document.addEventListener('DOMContentLoaded', function() {
-            const authForm = document.getElementById('authForm');
-            if (authForm) {
-                authForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    
-                    const username = document.getElementById('username').value.trim();
-                    const password = document.getElementById('password').value;
-                    const errorElement = document.getElementById('authError');
-                    const submitButton = authForm.querySelector('button[type="submit"]');
-                    
-                    if (!username || !password) {
-                        errorElement.textContent = '사용자명과 비밀번호를 입력해주세요.';
-                        errorElement.style.display = 'block';
-                        return;
-                    }
-                    
-                    try {
-                        submitButton.disabled = true;
-                        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 로그인 중...';
-                        errorElement.style.display = 'none';
-                        
-                        console.log('🔐 로그인 시도:', username);
-                        const success = await login(username, password);
-                        
-                        if (success) {
-                            console.log('✅ 로그인 성공, UI 업데이트 중...');
-                            updateUserInfo();
-                            hideAuthModal();
-                            await initializeDashboard();
-                            console.log('🎉 대시보드 로드 완료');
-                        }
-                    } catch (error) {
-                        console.error('❌ 로그인 오류:', error);
-                        errorElement.textContent = error.message || '로그인에 실패했습니다.';
-                        errorElement.style.display = 'block';
-                    } finally {
-                        submitButton.disabled = false;
-                        submitButton.innerHTML = '<i class="fas fa-sign-in-alt"></i> 로그인';
-                        document.getElementById('password').value = '';
-                    }
-                });
-            }
-
-            // 페이지 로드 시 인증 상태 확인
-            console.log('🔍 페이지 로드 시 인증 상태 확인...');
-            checkAuthStatus().then(isAuth => {
-                console.log('🔍 인증 상태:', isAuth);
-                if (isAuth) {
-                    console.log('✅ 기존 인증 유지, 대시보드 초기화...');
-                    initializeDashboard();
-                } else {
-                    console.log('🔐 인증 필요, 로그인 모달 표시');
-                }
-            });
-        });
-
-        document.getElementById('limitSelect').addEventListener('change', function() {
-            if (isAuthenticated()) {
-                loadFeedback(currentFeedbackFilter);
-            }
-        });
-        
-        document.getElementById('daysSelect').addEventListener('change', function() {
-            if (isAuthenticated()) {
-                refreshData();
-            }
-        });
-        
-        document.getElementById('conversationDaysSelect').addEventListener('change', function() {
-            if (isAuthenticated()) {
-                refreshConversationData();
-            }
-        });
-
-        // 키보드 단축키
-        document.addEventListener('keydown', function(e) {
-            if (!isAuthenticated()) return;
-
-            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-                e.preventDefault();
-                const activeTab = document.querySelector('.tab-content.active');
-                if (activeTab.id === 'feedbackContent') {
-                    refreshData();
-                } else {
-                    refreshConversationData();
-                }
-            }
-        });
-
-        window.addEventListener('beforeunload', function() {
-            if (sessionTimeout) {
-                clearTimeout(sessionTimeout);
-            }
-            if (tokenRefreshInterval) {
-                clearInterval(tokenRefreshInterval);
-            }
-        });
-
-        console.log('🔒 서버 사이드 인증 시스템 초기화 완료');
-    </script>
-</body>
-</html>TimeLabels(days) {
+        function generateTimeLabels(days) {
             const labels = [];
             const { startDate } = getDateRange(days);
             
@@ -1712,7 +1530,6 @@
             }
         });
 
-        console.log('🔒 서버 사이드 인증 시스템 초기화 완료');
     </script>
 </body>
 </html>
