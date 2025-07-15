@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 고객센터 에이전트 대시보드8</title>
+    <title>투어비스 고객센터 에이전트 대시보드9</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -701,70 +701,57 @@
 
         // 🔧 수정된 날짜 필터링 함수
 function getDateRange(days) {
+    // 🔧 수정: 브라우저의 로컬 시간대를 그대로 사용
     const now = new Date();
     
-    // 🔧 수정: 한국 시간대로 명시적 설정
-    const koreaOffset = 9 * 60; // 한국은 UTC+9 (분 단위)
-    const localOffset = now.getTimezoneOffset();
-    const koreaTime = new Date(now.getTime() + (koreaOffset + localOffset) * 60 * 1000);
+    // 오늘 끝 시간 (23:59:59)
+    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     
-    // 한국 시간 기준으로 날짜 계산
-    const endDate = new Date(koreaTime.getFullYear(), koreaTime.getMonth(), koreaTime.getDate(), 23, 59, 59, 999);
-    
+    // 시작일 = 오늘에서 (days-1)일 전의 시작 (00:00:00)
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - (days - 1));
     startDate.setHours(0, 0, 0, 0);
     
-    console.log('📅 날짜 범위 계산 (한국시간):', {
+    console.log('📅 날짜 범위 계산 (로컬시간):', {
         requestedDays: days,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        koreaStartDate: new Date(startDate.getTime() + koreaOffset * 60 * 1000).toISOString(),
-        koreaEndDate: new Date(endDate.getTime() + koreaOffset * 60 * 1000).toISOString()
+        localStart: startDate.toLocaleString('ko-KR'),
+        localEnd: endDate.toLocaleString('ko-KR')
     });
     
     return { startDate, endDate };
 }
-        function updateDebugDateRange(days) {
+    function updateDebugDateRange(days) {
     const { startDate, endDate } = getDateRange(days);
-    
-    // 🔧 수정: 한국 시간대로 표시
-    const koreaOffset = 9 * 60 * 60 * 1000;
-    const koreaStartDate = new Date(startDate.getTime() + koreaOffset);
-    const koreaEndDate = new Date(endDate.getTime() + koreaOffset);
     
     const debugElement = document.getElementById('debugDateRange');
     if (debugElement) {
-        debugElement.innerHTML = `📅 조회 범위 (한국시간): ${koreaStartDate.toLocaleDateString('ko-KR')} ${koreaStartDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} ~ ${koreaEndDate.toLocaleDateString('ko-KR')} ${koreaEndDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} (${days}일간, 오늘 포함)`;
+        debugElement.innerHTML = `📅 조회 범위 (한국시간): ${startDate.toLocaleDateString('ko-KR')} ${startDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} ~ ${endDate.toLocaleDateString('ko-KR')} ${endDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} (${days}일간, 오늘 포함)`;
     }
 }
 
-        async function fetchConversations(days, limit) {
+   async function fetchConversations(days, limit) {
     days = Math.max(1, Math.min(parseInt(days) || 7, 365));
     limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
     
     try {
-        // 🔧 수정: 한국 시간대 기준으로 날짜 범위 계산
+        // 🔧 수정: 로컬 시간대 그대로 사용
         const { startDate, endDate } = getDateRange(days);
         
-        // 한국 시간대 오프셋 적용 (UTC+9)
-        const koreaOffset = 9 * 60 * 60 * 1000; // 9시간을 밀리초로
-        const koreaStartDate = new Date(startDate.getTime() + koreaOffset);
-        const koreaEndDate = new Date(endDate.getTime() + koreaOffset);
+        // ISO 문자열로 직접 전송 (브라우저가 자동으로 UTC로 변환)
+        const startDateStr = startDate.toISOString();
+        const endDateStr = endDate.toISOString();
         
-        const startDateStr = koreaStartDate.toISOString();
-        const endDateStr = koreaEndDate.toISOString();
-        
-        console.log('💬 Q&A 데이터 요청 (한국시간):', {
+        console.log('💬 Q&A 데이터 요청:', {
             requestedDays: days,
-            originalStart: startDate.toISOString(),
-            originalEnd: endDate.toISOString(),
-            koreaStart: startDateStr,
-            koreaEnd: endDateStr,
+            startDate: startDateStr,
+            endDate: endDateStr,
+            localStart: startDate.toLocaleString('ko-KR'),
+            localEnd: endDate.toLocaleString('ko-KR'),
             limit: limit
         });
         
-        // 🔧 서버에 start_date와 end_date를 직접 전달
         const url = `${API_BASE_URL}/api/qa/conversations?start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}&limit=${encodeURIComponent(limit)}`;
         const response = await makeAuthenticatedRequest(url);
 
