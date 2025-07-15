@@ -724,11 +724,29 @@
             limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
             
             try {
-                const response = await makeAuthenticatedRequest(API_BASE_URL + '/api/qa/conversations?days=' + encodeURIComponent(days) + '&limit=' + encodeURIComponent(limit));
+                // 🔧 수정: 서버에 정확한 날짜 범위를 전달
+                const { startDate, endDate } = getDateRange(days);
+                const startDateStr = startDate.toISOString();
+                const endDateStr = endDate.toISOString();
+                
+                console.log('💬 Q&A 데이터 요청:', {
+                    requestedDays: days,
+                    startDate: startDateStr,
+                    endDate: endDateStr,
+                    limit: limit
+                });
+                
+                // 🔧 서버에 start_date와 end_date를 직접 전달
+                const url = `${API_BASE_URL}/api/qa/conversations?start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}&limit=${encodeURIComponent(limit)}`;
+                const response = await makeAuthenticatedRequest(url);
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Q&A 데이터 수신:', data);
+                    console.log('✅ Q&A 데이터 수신:', {
+                        conversations: data.conversations?.length || 0,
+                        stats: data.stats,
+                        dateRange: `${startDateStr} ~ ${endDateStr}`
+                    });
                     return data;
                 }
             } catch (error) {
