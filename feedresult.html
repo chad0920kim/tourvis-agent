@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 고객센터 에이전트 대시보드7</title>
+    <title>투어비스 고객센터 에이전트 대시보드8</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -703,74 +703,93 @@
 function getDateRange(days) {
     const now = new Date();
     
-    // 🔧 수정: 항상 오늘 끝 시간을 사용 (서버와 동일)
-    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    // 🔧 수정: 한국 시간대로 명시적 설정
+    const koreaOffset = 9 * 60; // 한국은 UTC+9 (분 단위)
+    const localOffset = now.getTimezoneOffset();
+    const koreaTime = new Date(now.getTime() + (koreaOffset + localOffset) * 60 * 1000);
     
-    // 시작일 = 오늘에서 (days-1)일 전의 시작 (00:00:00)
+    // 한국 시간 기준으로 날짜 계산
+    const endDate = new Date(koreaTime.getFullYear(), koreaTime.getMonth(), koreaTime.getDate(), 23, 59, 59, 999);
+    
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - (days - 1));
     startDate.setHours(0, 0, 0, 0);
     
-    console.log('📅 날짜 범위 계산:', {
+    console.log('📅 날짜 범위 계산 (한국시간):', {
         requestedDays: days,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        actualDays: Math.ceil((endDate - startDate) / (24 * 60 * 60 * 1000))
+        koreaStartDate: new Date(startDate.getTime() + koreaOffset * 60 * 1000).toISOString(),
+        koreaEndDate: new Date(endDate.getTime() + koreaOffset * 60 * 1000).toISOString()
     });
     
     return { startDate, endDate };
 }
         function updateDebugDateRange(days) {
-            const { startDate, endDate } = getDateRange(days);
-            const debugElement = document.getElementById('debugDateRange');
-            if (debugElement) {
-                debugElement.innerHTML = `📅 조회 범위: ${startDate.toLocaleDateString('ko-KR')} ${startDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} ~ ${endDate.toLocaleDateString('ko-KR')} ${endDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} (${days}일간, 오늘 포함)`;
-            }
-        }
+    const { startDate, endDate } = getDateRange(days);
+    
+    // 🔧 수정: 한국 시간대로 표시
+    const koreaOffset = 9 * 60 * 60 * 1000;
+    const koreaStartDate = new Date(startDate.getTime() + koreaOffset);
+    const koreaEndDate = new Date(endDate.getTime() + koreaOffset);
+    
+    const debugElement = document.getElementById('debugDateRange');
+    if (debugElement) {
+        debugElement.innerHTML = `📅 조회 범위 (한국시간): ${koreaStartDate.toLocaleDateString('ko-KR')} ${koreaStartDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} ~ ${koreaEndDate.toLocaleDateString('ko-KR')} ${koreaEndDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} (${days}일간, 오늘 포함)`;
+    }
+}
 
         async function fetchConversations(days, limit) {
-            days = Math.max(1, Math.min(parseInt(days) || 7, 365));
-            limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
-            
-            try {
-                // 🔧 수정: 서버에 정확한 날짜 범위를 전달
-                const { startDate, endDate } = getDateRange(days);
-                const startDateStr = startDate.toISOString();
-                const endDateStr = endDate.toISOString();
-                
-                console.log('💬 Q&A 데이터 요청:', {
-                    requestedDays: days,
-                    startDate: startDateStr,
-                    endDate: endDateStr,
-                    limit: limit
-                });
-                
-                // 🔧 서버에 start_date와 end_date를 직접 전달
-                const url = `${API_BASE_URL}/api/qa/conversations?start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}&limit=${encodeURIComponent(limit)}`;
-                const response = await makeAuthenticatedRequest(url);
+    days = Math.max(1, Math.min(parseInt(days) || 7, 365));
+    limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
+    
+    try {
+        // 🔧 수정: 한국 시간대 기준으로 날짜 범위 계산
+        const { startDate, endDate } = getDateRange(days);
+        
+        // 한국 시간대 오프셋 적용 (UTC+9)
+        const koreaOffset = 9 * 60 * 60 * 1000; // 9시간을 밀리초로
+        const koreaStartDate = new Date(startDate.getTime() + koreaOffset);
+        const koreaEndDate = new Date(endDate.getTime() + koreaOffset);
+        
+        const startDateStr = koreaStartDate.toISOString();
+        const endDateStr = koreaEndDate.toISOString();
+        
+        console.log('💬 Q&A 데이터 요청 (한국시간):', {
+            requestedDays: days,
+            originalStart: startDate.toISOString(),
+            originalEnd: endDate.toISOString(),
+            koreaStart: startDateStr,
+            koreaEnd: endDateStr,
+            limit: limit
+        });
+        
+        // 🔧 서버에 start_date와 end_date를 직접 전달
+        const url = `${API_BASE_URL}/api/qa/conversations?start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}&limit=${encodeURIComponent(limit)}`;
+        const response = await makeAuthenticatedRequest(url);
 
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ Q&A 데이터 수신:', {
-                        conversations: data.conversations?.length || 0,
-                        stats: data.stats,
-                        dateRange: `${startDateStr} ~ ${endDateStr}`
-                    });
-                    return data;
-                }
-            } catch (error) {
-                console.warn('⚠️ Q&A 요청 실패:', error.message);
-            }
-
-            return {
-                conversations: [],
-                total: 0,
-                stats: {
-                    unique_sessions: 0,
-                    match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }
-                }
-            };
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Q&A 데이터 수신:', {
+                conversations: data.conversations?.length || 0,
+                stats: data.stats,
+                dateRange: `${startDateStr} ~ ${endDateStr}`
+            });
+            return data;
         }
+    } catch (error) {
+        console.warn('⚠️ Q&A 요청 실패:', error.message);
+    }
+
+    return {
+        conversations: [],
+        total: 0,
+        stats: {
+            unique_sessions: 0,
+            match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }
+        }
+    };
+}
 
         function extractFeedbackType(feedback) {
             if (!feedback || typeof feedback !== 'object') {
