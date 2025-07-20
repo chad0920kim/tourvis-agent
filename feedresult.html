@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 고객센터 에이전트 대시보드9</title>
+    <title>투어비스 고객센터 에이전트 대시보드10</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -117,7 +117,7 @@
 
     <div class="dashboard-container" id="dashboardContainer" style="display: none;">
         <div class="header">
-            <h1><i class="fas fa-chart-line"></i> 투어비스 고객센터 에이전트 대시보드</h1>
+            <h1><i class="fas fa-chart-line"></i> 투어비스 고객센터 에이전트 대시보드10</h1>
             <div class="header-controls">
                 <div class="user-info" id="userInfo">
                     <span id="currentUser">사용자</span>
@@ -669,7 +669,10 @@
                 positive: 0,
                 negative: 0,
                 satisfaction_rate: 0,
-                unique_users: 0
+                unique_users: 0,
+                total_qa: 0,      // 🔧 추가
+                unique_sessions: 0,  // 🔧 추가
+                unique_qa_users: 0   // 🔧 추가
             };
         }
 
@@ -700,83 +703,84 @@
         }
 
         // 🔧 수정된 날짜 필터링 함수
-function getDateRange(days) {
-    // 🔧 수정: 브라우저의 로컬 시간대를 그대로 사용
-    const now = new Date();
-    
-    // 오늘 끝 시간 (23:59:59)
-    const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    
-    // 시작일 = 오늘에서 (days-1)일 전의 시작 (00:00:00)
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - (days - 1));
-    startDate.setHours(0, 0, 0, 0);
-    
-    console.log('📅 날짜 범위 계산 (로컬시간):', {
-        requestedDays: days,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        localStart: startDate.toLocaleString('ko-KR'),
-        localEnd: endDate.toLocaleString('ko-KR')
-    });
-    
-    return { startDate, endDate };
-}
-    function updateDebugDateRange(days) {
-    const { startDate, endDate } = getDateRange(days);
-    
-    const debugElement = document.getElementById('debugDateRange');
-    if (debugElement) {
-        debugElement.innerHTML = `📅 조회 범위 (한국시간): ${startDate.toLocaleDateString('ko-KR')} ${startDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} ~ ${endDate.toLocaleDateString('ko-KR')} ${endDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} (${days}일간, 오늘 포함)`;
-    }
-}
-
-   async function fetchConversations(days, limit) {
-    days = Math.max(1, Math.min(parseInt(days) || 7, 365));
-    limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
-    
-    try {
-        // 🔧 수정: 로컬 시간대 그대로 사용
-        const { startDate, endDate } = getDateRange(days);
-        
-        // ISO 문자열로 직접 전송 (브라우저가 자동으로 UTC로 변환)
-        const startDateStr = startDate.toISOString();
-        const endDateStr = endDate.toISOString();
-        
-        console.log('💬 Q&A 데이터 요청:', {
-            requestedDays: days,
-            startDate: startDateStr,
-            endDate: endDateStr,
-            localStart: startDate.toLocaleString('ko-KR'),
-            localEnd: endDate.toLocaleString('ko-KR'),
-            limit: limit
-        });
-        
-        const url = `${API_BASE_URL}/api/qa/conversations?start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}&limit=${encodeURIComponent(limit)}`;
-        const response = await makeAuthenticatedRequest(url);
-
-        if (response.ok) {
-            const data = await response.json();
-            console.log('✅ Q&A 데이터 수신:', {
-                conversations: data.conversations?.length || 0,
-                stats: data.stats,
-                dateRange: `${startDateStr} ~ ${endDateStr}`
+        function getDateRange(days) {
+            // 🔧 수정: 브라우저의 로컬 시간대를 그대로 사용
+            const now = new Date();
+            
+            // 오늘 끝 시간 (23:59:59)
+            const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+            
+            // 시작일 = 오늘에서 (days-1)일 전의 시작 (00:00:00)
+            const startDate = new Date(endDate);
+            startDate.setDate(startDate.getDate() - (days - 1));
+            startDate.setHours(0, 0, 0, 0);
+            
+            console.log('📅 날짜 범위 계산 (로컬시간):', {
+                requestedDays: days,
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+                localStart: startDate.toLocaleString('ko-KR'),
+                localEnd: endDate.toLocaleString('ko-KR')
             });
-            return data;
+            
+            return { startDate, endDate };
         }
-    } catch (error) {
-        console.warn('⚠️ Q&A 요청 실패:', error.message);
-    }
 
-    return {
-        conversations: [],
-        total: 0,
-        stats: {
-            unique_sessions: 0,
-            match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }
+        function updateDebugDateRange(days) {
+            const { startDate, endDate } = getDateRange(days);
+            
+            const debugElement = document.getElementById('debugDateRange');
+            if (debugElement) {
+                debugElement.innerHTML = `📅 조회 범위 (한국시간): ${startDate.toLocaleDateString('ko-KR')} ${startDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} ~ ${endDate.toLocaleDateString('ko-KR')} ${endDate.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit'})} (${days}일간, 오늘 포함)`;
+            }
         }
-    };
-}
+
+        async function fetchConversations(days, limit) {
+            days = Math.max(1, Math.min(parseInt(days) || 7, 365));
+            limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
+            
+            try {
+                // 🔧 수정: 로컬 시간대 그대로 사용
+                const { startDate, endDate } = getDateRange(days);
+                
+                // ISO 문자열로 직접 전송 (브라우저가 자동으로 UTC로 변환)
+                const startDateStr = startDate.toISOString();
+                const endDateStr = endDate.toISOString();
+                
+                console.log('💬 Q&A 데이터 요청:', {
+                    requestedDays: days,
+                    startDate: startDateStr,
+                    endDate: endDateStr,
+                    localStart: startDate.toLocaleString('ko-KR'),
+                    localEnd: endDate.toLocaleString('ko-KR'),
+                    limit: limit
+                });
+                
+                const url = `${API_BASE_URL}/api/qa/conversations?start_date=${encodeURIComponent(startDateStr)}&end_date=${encodeURIComponent(endDateStr)}&limit=${encodeURIComponent(limit)}`;
+                const response = await makeAuthenticatedRequest(url);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Q&A 데이터 수신:', {
+                        conversations: data.conversations?.length || 0,
+                        stats: data.stats,
+                        dateRange: `${startDateStr} ~ ${endDateStr}`
+                    });
+                    return data;
+                }
+            } catch (error) {
+                console.warn('⚠️ Q&A 요청 실패:', error.message);
+            }
+
+            return {
+                conversations: [],
+                total: 0,
+                stats: {
+                    unique_sessions: 0,
+                    match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }
+                }
+            };
+        }
 
         function extractFeedbackType(feedback) {
             if (!feedback || typeof feedback !== 'object') {
@@ -830,6 +834,7 @@ function getDateRange(days) {
             }
         }
 
+        // 🔧 핵심 수정: refreshData 함수
         async function refreshData() {
             if (!isAuthenticated()) {
                 logout();
@@ -840,24 +845,21 @@ function getDateRange(days) {
             try {
                 document.getElementById('feedbackList').innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
                 
-                const [stats, qaData] = await Promise.all([
-                    fetchStats(days),
-                    globalQAData.length > 0 ? Promise.resolve({conversations: globalQAData}) : fetchConversations(days, 1000)
-                ]);
+                // 🔧 수정: 서버 통계 데이터를 우선 사용
+                const stats = await fetchStats(days);
                 
-                if (qaData.conversations) {
-                    allQAData = qaData.conversations;
-                }
+                console.log('🔧 서버에서 받은 통계:', {
+                    total_qa: stats.total_qa,
+                    total_feedback: stats.total_feedback,
+                    unique_sessions: stats.unique_sessions
+                });
                 
-                const totalQA = allQAData.length;
-                const responseRate = calculateResponseRate(stats.total_feedback, totalQA);
-                
+                // 🔧 수정: 서버 통계를 그대로 사용
                 currentData = {
-                    stats: { ...stats, total_qa: totalQA, response_rate: responseRate },
-                    conversations: qaData
+                    stats: stats  // 서버에서 받은 stats를 그대로 사용
                 };
                 
-                updateFeedbackStats(currentData.stats, currentData.conversations);
+                updateFeedbackStats(currentData.stats);
                 updateFeedbackCharts(currentData, days);
                 await loadFeedback(currentFeedbackFilter);
             } catch (error) {
@@ -1090,21 +1092,27 @@ function getDateRange(days) {
             container.innerHTML = htmlParts.join('');
         }
 
-        function updateFeedbackStats(stats, conversationData) {
+        // 🔧 핵심 수정: updateFeedbackStats 함수
+        function updateFeedbackStats(stats) {
+            console.log('🔧 통계 업데이트:', stats);
+            
             const elements = {
                 totalFeedback: stats.total_feedback || 0,
                 positiveFeedback: stats.positive || 0,
                 negativeFeedback: stats.negative || 0,
                 uniqueUsers: stats.unique_users || 0,
                 satisfactionRate: (stats.satisfaction_rate || 0) + '%',
-                totalQA: stats.total_qa || 0,
-                responseRate: (stats.response_rate || 0) + '%'
+                totalQA: stats.total_qa || 0,  // 🔧 서버에서 받은 값 그대로 사용
+                responseRate: calculateResponseRate(stats.total_feedback || 0, stats.total_qa || 0) + '%'
             };
+
+            console.log('🔧 UI 업데이트 값들:', elements);
 
             Object.entries(elements).forEach(([id, value]) => {
                 const element = document.getElementById(id);
                 if (element) {
                     element.textContent = value;
+                    console.log(`🔧 ${id} 업데이트: ${value}`);
                 }
             });
             
