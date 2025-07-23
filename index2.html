@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>투어비스 에이전트2-2</title>
+  <title>투어비스 에이전트3</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
   <style>
     * {
@@ -208,6 +208,52 @@
       align-self: flex-start;
     }
 
+    /* 피드백 버튼 스타일 */
+    .feedback-container {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      align-self: flex-start;
+    }
+
+    .feedback-btn {
+      background: transparent;
+      border: 1px solid #e1e5e9;
+      border-radius: 16px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #6c757d;
+    }
+
+    .feedback-btn:hover:not(:disabled) {
+      background: #f8f9fa;
+      border-color: #007bff;
+      color: #007bff;
+    }
+
+    .feedback-btn:disabled {
+      background: #f8f9fa;
+      color: #28a745;
+      border-color: #28a745;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .feedback-btn.negative:hover:not(:disabled) {
+      border-color: #dc3545;
+      color: #dc3545;
+    }
+
+    .feedback-btn.negative:disabled {
+      color: #dc3545;
+      border-color: #dc3545;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -359,6 +405,11 @@
         margin: 6px 0;
       }
 
+      .feedback-btn {
+        font-size: 11px;
+        padding: 5px 10px;
+      }
+
       /* 모바일에서 스크롤바 숨기기 */
       #chat::-webkit-scrollbar {
         display: none;
@@ -448,6 +499,18 @@
       #toggleBtn:hover {
         color: #4da6ff;
       }
+
+      .feedback-btn {
+        background: #3a3a3a;
+        border-color: #4a4a4a;
+        color: #aaa;
+      }
+
+      .feedback-btn:hover:not(:disabled) {
+        background: #4a4a4a;
+        border-color: #66b3ff;
+        color: #66b3ff;
+      }
     }
 
     /* 🎯 접근성 개선 */
@@ -462,7 +525,7 @@
 </head>
 <body>
   <div id="header">
-    <h1>🎯 투어비스 고객센터</h1>
+    <h1>🎯 투어비스 고객센터3</h1>
   </div>
 
   <div id="inputToggleArea">
@@ -485,10 +548,58 @@
     const toggleBtn = document.getElementById("toggleBtn");
     const container = document.getElementById("container");
     let currentBotContent = null;
+    let currentQAId = null; // 현재 Q&A ID 추적
 
     // 🎯 모바일/PC 감지
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                      window.innerWidth <= 768;
+
+    // ✅ Q&A ID 기반 피드백 전송
+    function sendFeedback(qaId, type) {
+      console.log(`피드백 전송: QA ID ${qaId}, Type: ${type}`);
+      
+      // ✅ URL 파라미터 변경: chat_id → qa_id
+      fetch(`https://tourvis-agent-mibqa.run.goorm.site/feedback-simple?qa_id=${qaId}&type=${type}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'success') {
+            alert(data.message || '피드백이 성공적으로 전송되었습니다.');
+            // ✅ 피드백 후 버튼 비활성화 (중복 방지)
+            const buttons = document.querySelectorAll(`button[data-qa-id="${qaId}"]`);
+            buttons.forEach(btn => {
+              btn.disabled = true;
+              btn.style.opacity = '0.7';
+              if (btn.classList.contains('positive')) {
+                btn.innerHTML = '👍 전송됨';
+              } else {
+                btn.innerHTML = '👎 전송됨';
+              }
+            });
+          } else {
+            alert('피드백 전송에 실패했습니다.');
+          }
+        })
+        .catch(error => {
+          console.error('Feedback error:', error);
+          alert('피드백 전송 중 오류가 발생했습니다.');
+        });
+    }
+
+    // ✅ SSE 응답 처리 시 Q&A ID 추출
+    function handleSSEResponse(eventData) {
+      // 응답 메타데이터에서 qa_id 추출
+      if (eventData.response_metadata && eventData.response_metadata.qa_id) {
+        currentQAId = eventData.response_metadata.qa_id;
+        console.log('Current Q&A ID:', currentQAId);
+      }
+      
+      // 일반적인 응답 처리...
+    }
 
     // 🎯 textarea 자동 높이 조절
     input.addEventListener('input', function() {
@@ -514,7 +625,7 @@
       toggleBtn.textContent = isHidden ? '▼' : '▲';
     });
 
-    function addMsg(role, text, timestamp) {
+    function addMsg(role, text, timestamp, qaId = null) {
       const wrap = document.createElement("div");
       wrap.className = "msg";
 
@@ -528,9 +639,43 @@
 
       wrap.appendChild(content);
       wrap.appendChild(time);
+
+      // 봇 메시지인 경우 피드백 버튼 추가
+      if (role === 'bot' && qaId && !text.includes('타이핑') && !text.includes('오타') && !text.includes('오류')) {
+        setTimeout(() => {
+          addFeedbackButtons(wrap, qaId);
+        }, 500); // 메시지 완성 후 피드백 버튼 추가
+      }
+
       chat.appendChild(wrap);
       
       // 부드럽게 스크롤을 맨 아래로
+      setTimeout(() => {
+        chat.scrollTop = chat.scrollHeight;
+      }, 50);
+    }
+
+    function addFeedbackButtons(messageWrap, qaId) {
+      const feedbackContainer = document.createElement("div");
+      feedbackContainer.className = "feedback-container";
+
+      const likeBtn = document.createElement("button");
+      likeBtn.className = "feedback-btn positive";
+      likeBtn.innerHTML = '👍 도움됨';
+      likeBtn.setAttribute('data-qa-id', qaId);
+      likeBtn.onclick = () => sendFeedback(qaId, 'positive');
+
+      const dislikeBtn = document.createElement("button");
+      dislikeBtn.className = "feedback-btn negative";
+      dislikeBtn.innerHTML = '👎 아니요';
+      dislikeBtn.setAttribute('data-qa-id', qaId);
+      dislikeBtn.onclick = () => sendFeedback(qaId, 'negative');
+
+      feedbackContainer.appendChild(likeBtn);
+      feedbackContainer.appendChild(dislikeBtn);
+      messageWrap.appendChild(feedbackContainer);
+
+      // 스크롤 조정
       setTimeout(() => {
         chat.scrollTop = chat.scrollHeight;
       }, 50);
@@ -656,12 +801,22 @@
         let fullText = "";
         let isFirstChunk = true;
         let typoNoticeShown = false;
+        let responseQAId = null; // 이번 응답의 Q&A ID
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
             console.log('✅ 스트림 완료'); // 디버깅용
-            break;
+            
+            // 응답 완료 시 피드백 버튼 추가
+            if (responseQAId && fullText.trim()) {
+              setTimeout(() => {
+                addFeedbackButtons(botWrap, responseQAId);
+              }, 500);
+            }
+            
+            resetUI();
+            return;
           }
 
           const chunk = decoder.decode(value, { stream: true });
@@ -671,6 +826,14 @@
             const jsonStr = line.replace(/^data:\s*/, "").trim();
             if (jsonStr === "[DONE]") {
               console.log('🏁 응답 완료'); // 디버깅용
+              
+              // 응답 완료 시 피드백 버튼 추가
+              if (responseQAId && fullText.trim()) {
+                setTimeout(() => {
+                  addFeedbackButtons(botWrap, responseQAId);
+                }, 500);
+              }
+              
               resetUI();
               return;
             }
@@ -678,6 +841,20 @@
             try {
               const parsed = JSON.parse(jsonStr);
               console.log('📨 파싱된 데이터:', parsed); // 디버깅용
+              
+              // Q&A ID 추출
+              if (parsed.response_metadata && parsed.response_metadata.qa_id) {
+                responseQAId = parsed.response_metadata.qa_id;
+                currentQAId = responseQAId;
+                console.log('✅ Q&A ID 추출됨:', responseQAId);
+              }
+              
+              // Q&A ID가 직접 포함된 경우도 처리
+              if (parsed.qa_id) {
+                responseQAId = parsed.qa_id;
+                currentQAId = responseQAId;
+                console.log('✅ Q&A ID 직접 추출됨:', responseQAId);
+              }
               
               // 특수 상태 처리
               if (parsed.status) {
