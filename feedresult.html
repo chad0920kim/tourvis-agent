@@ -332,8 +332,6 @@
         let currentData = {};
         let currentFeedbackFilter = 'all';
         let allFeedbackData = [];
-        let allQAData = [];
-        let globalQAData = [];
         let authToken = null;
         let currentUser = null;
         let sessionTimeout = null;
@@ -651,60 +649,7 @@
             return false;
         }
 
-        // 🔧 핵심 수정: 모든 통계 요청을 백엔드 days 파라미터로 통일
-        async function fetchStats(days) {
-            days = days || 7;
-            try {
-                const response = await makeAuthenticatedRequest(API_BASE_URL + '/api/stats?days=' + encodeURIComponent(days));
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ 통계 데이터 수신 (백엔드 계산):', data);
-                    return data;
-                }
-            } catch (error) {
-                console.warn('⚠️ 통계 요청 실패:', error.message);
-            }
-
-            return {
-                total_feedback: 0,
-                positive: 0,
-                negative: 0,
-                satisfaction_rate: 0,
-                unique_users: 0,
-                total_qa: 0,
-                unique_sessions: 0,
-                unique_qa_users: 0
-            };
-        }
-
-        async function fetchFeedback(limit, feedback_type) {
-            limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
-            feedback_type = ['all', 'positive', 'negative'].includes(feedback_type) ? feedback_type : 'all';
-            
-            try {
-                const url = API_BASE_URL + '/api/feedback?limit=' + encodeURIComponent(limit) + '&feedback_type=' + encodeURIComponent(feedback_type);
-                console.log('📝 피드백 데이터 요청:', url);
-                
-                const response = await makeAuthenticatedRequest(url);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ 피드백 데이터 수신:', {
-                        filter: feedback_type,
-                        count: data.feedback?.length || 0,
-                        total: data.total || 0
-                    });
-                    return data;
-                }
-            } catch (error) {
-                console.warn('⚠️ 피드백 요청 실패:', error.message);
-            }
-
-            return { feedback: [], total: 0 };
-        }
-
-        // 🔧 핵심 수정: Q&A 조회도 days 파라미터로 통일
+        // 🔧 핵심 수정: fetchConversations - days 파라미터로 통일
         async function fetchConversations(days, limit) {
             days = Math.max(1, Math.min(parseInt(days) || 7, 365));
             limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
@@ -715,7 +660,6 @@
                     limit: limit
                 });
                 
-                // 🔧 수정: days 파라미터만 전송하여 백엔드에서 날짜 계산하도록 변경
                 const url = `${API_BASE_URL}/api/qa/conversations?days=${encodeURIComponent(days)}&limit=${encodeURIComponent(limit)}`;
                 const response = await makeAuthenticatedRequest(url);
 
@@ -795,7 +739,7 @@
             }
         }
 
-        // 🔧 핵심 수정: refreshData - 백엔드 통합 통계만 사용
+        // 🔧 핵심 수정: refreshData - 대시보드 통합 API 사용
         async function refreshData() {
             if (!isAuthenticated()) {
                 logout();
@@ -804,36 +748,43 @@
 
             const days = parseInt(document.getElementById('daysSelect').value);
             
-            // 날짜 계산 정보 업데이트
             updateDateCalculationInfo(days, 'feedback');
             
             try {
                 document.getElementById('feedbackList').innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
                 
-                // 🔧 수정: 백엔드에서 모든 통계를 계산하도록 변경
-                const stats = await fetchStats(days);
+                // 🔧 수정: 대시보드 통합 API에서 모든 데이터를 한 번에 가져옴
+                const response = await makeAuthenticatedRequest(
+                    `${API_BASE_URL}/api/dashboard/data?days=${days}`
+                );
                 
-                console.log('🔧 백엔드 통합 통계 (days 기반):', {
-                    total_qa: stats.total_qa,
-                    total_feedback: stats.total_feedback,
-                    unique_sessions: stats.unique_sessions,
-                    days: days
-                });
-                
-                currentData = {
-                    stats: stats
-                };
-                
-                updateFeedbackStats(currentData.stats);
-                updateFeedbackCharts(currentData, days);
-                await loadFeedback(currentFeedbackFilter);
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    console.log('🔧 대시보드 통합 데이터 수신:', {
+                        stats: data.stats,
+                        feedback_matched: data.feedback?.total_matched || 0,
+                        feedback_unmatched: data.feedback?.total_unmatched || 0,
+                        qa_total: data.conversations?.total || 0
+                    });
+                    
+                    currentData = {
+                        stats: data.stats,
+                        dashboardData: data
+                    };
+                    
+                    updateFeedbackStats(data.stats);
+                    updateFeedbackCharts(currentData, days);
+                    
+                    // 피드백 목록은 별도로 로드
+                    await loadFeedback(currentFeedbackFilter);
+                }
             } catch (error) {
                 console.error('데이터 새로고침 실패:', error);
                 showError('데이터를 불러오는 중 오류가 발생했습니다.');
             }
         }
 
-        // 🔧 새 함수: 날짜 계산 정보 표시
         function updateDateCalculationInfo(days, tabType) {
             const infoId = tabType === 'feedback' ? 'dateCalculationInfo' : 'qaDateCalculationInfo';
             const infoElement = document.getElementById(infoId);
@@ -844,7 +795,6 @@
             }
         }
 
-        // 🔧 핵심 수정: refreshConversationData - 백엔드 days 파라미터만 사용
         async function refreshConversationData() {
             if (!isAuthenticated()) {
                 logout();
@@ -853,13 +803,11 @@
 
             const days = parseInt(document.getElementById('conversationDaysSelect').value);
             
-            // 날짜 계산 정보 업데이트
             updateDateCalculationInfo(days, 'conversation');
             
             try {
                 console.log('🔄 Q&A 데이터 새로고침 시작 (백엔드 days):', { days });
                 
-                // 🔧 수정: days 파라미터만 사용하여 백엔드에서 날짜 계산
                 const data = await fetchConversations(days, 100);
                 currentData = data;
                 
@@ -877,121 +825,12 @@
             }
         }
 
-        // 🔧 수정된 피드백-Q&A 매칭 함수
-        function enrichFeedbackWithQA(feedbackData, qaData) {
-            if (!isAuthenticated()) {
-                logout();
-                return [];
-            }
-
-            console.log('🔍 피드백-Q&A 연결 시작 (QA ID 기반)');
-            console.log('📝 피드백 데이터 수:', feedbackData.length);
-            console.log('💬 Q&A 데이터 수:', qaData.length);
-            
-            return feedbackData.map((feedback, index) => {
-                // ✅ 수정: qa_id 기반 매칭
-                let qaId = null;
-                
-                // 1순위: qa_reference_id (백엔드에서 명시적으로 설정)
-                if (feedback.qa_reference_id) {
-                    qaId = feedback.qa_reference_id;
-                }
-                // 2순위: feedback_id (qa_id와 동일하게 설정됨)
-                else if (feedback.feedback_id && feedback.feedback_id !== 'unknown') {
-                    qaId = feedback.feedback_id;
-                }
-                // 3순위: feedback_id에서 qa_id 패턴 추출
-                else if (feedback.feedback_id && feedback.feedback_id.includes('_')) {
-                    // feedback_id가 "user_abc123_1703123456_789" 형태인 경우
-                    qaId = feedback.feedback_id;
-                }
-                
-                console.log(`🔍 피드백 ${index + 1}: feedback_id=${feedback.feedback_id}, 추출된 qa_id=${qaId}`);
-                
-                if (qaId) {
-                    // ✅ 수정: Q&A 데이터에서 id 필드로 매칭
-                    const relatedQA = qaData.find(qa => qa.id === qaId);
-                    
-                    if (relatedQA) {
-                        console.log(`✅ 매칭 성공: QA ID ${qaId}`);
-                        return {
-                            ...feedback,
-                            question: relatedQA.question || feedback.question || '',
-                            answer: relatedQA.answer || feedback.answer || '',
-                            qa_id: relatedQA.id,
-                            match_status: relatedQA.match_status,
-                            hasQAData: true,
-                            qaCount: 1,
-                            matchingMethod: 'qa_id_direct'
-                        };
-                    } else {
-                        console.log(`⚠️ QA ID 매칭 실패: ${qaId}`);
-                    }
-                }
-                
-                // ✅ 대체 방법: chat_id 기반 매칭 (하위 호환성)
-                const chatId = feedback.chat_id;
-                if (chatId) {
-                    const relatedQAs = qaData.filter(qa => qa.chat_id === chatId);
-                    
-                    if (relatedQAs.length > 0) {
-                        const latestQA = relatedQAs.sort((a, b) => {
-                            return new Date(b.timestamp) - new Date(a.timestamp);
-                        })[0];
-                        
-                        console.log(`✅ Chat ID 매칭 성공: ${chatId} (${relatedQAs.length}건)`);
-                        return {
-                            ...feedback,
-                            question: latestQA.question || feedback.question || '',
-                            answer: latestQA.answer || feedback.answer || '',
-                            qa_id: latestQA.id,
-                            match_status: latestQA.match_status,
-                            hasQAData: true,
-                            qaCount: relatedQAs.length,
-                            matchingMethod: 'chat_id_fallback'
-                        };
-                    }
-                }
-                
-                console.log(`❌ 매칭 실패: feedback_id=${feedback.feedback_id}, chat_id=${feedback.chat_id}`);
-                return {
-                    ...feedback,
-                    question: feedback.question || '',
-                    answer: feedback.answer || '',
-                    hasQAData: false,
-                    qaCount: 0,
-                    matchingMethod: 'no_match'
-                };
-            });
-        }
-
-        // 🔧 수정: loadQAData도 days 파라미터 사용
-        async function loadQAData() {
-            if (!isAuthenticated()) {
-                logout();
-                return [];
-            }
-
-            try {
-                // 최근 30일 데이터 로드 (백엔드 계산)
-                const data = await fetchConversations(30, 1000);
-                globalQAData = data.conversations || [];
-                allQAData = globalQAData;
-                console.log('✅ Q&A 데이터 로드 완료 (백엔드 30일):', globalQAData.length + '개');
-                return globalQAData;
-            } catch (error) {
-                console.warn('⚠️ Q&A 데이터 로드 실패:', error);
-                globalQAData = [];
-                allQAData = [];
-                return [];
-            }
-        }
-
         function calculateResponseRate(feedbackCount, qaCount) {
             if (qaCount === 0) return 0;
             return Math.round((feedbackCount / qaCount) * 100);
         }
 
+        // 🔧 핵심 수정: loadFeedback - 백엔드 매칭된 데이터 사용
         async function loadFeedback(type) {
             if (!isAuthenticated()) {
                 logout();
@@ -1007,30 +846,43 @@
             document.getElementById('feedbackList').innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
 
             const limit = parseInt(document.getElementById('limitSelect').value);
+            const days = parseInt(document.getElementById('daysSelect').value);
             
             try {
-                const [feedbackData, qaData] = await Promise.all([
-                    fetchFeedback(limit, type),
-                    globalQAData.length > 0 ? Promise.resolve(globalQAData) : loadQAData()
-                ]);
+                // 🔧 수정: 대시보드 API에서 이미 매칭된 피드백을 가져옴
+                const response = await makeAuthenticatedRequest(
+                    `${API_BASE_URL}/api/dashboard/data?days=${days}&feedback_limit=${limit}`
+                );
                 
-                console.log('📊 피드백 데이터 로드 결과:', {
-                    filter_type: type,
-                    feedback_count: feedbackData.feedback?.length || 0,
-                    qa_count: qaData.length
-                });
-                
-                const enrichedFeedback = enrichFeedbackWithQA(feedbackData.feedback || [], qaData);
-                
-                allFeedbackData = enrichedFeedback;
-                displayFeedback(enrichedFeedback);
+                if (response.ok) {
+                    const data = await response.json();
+                    const feedbackData = data.feedback?.feedback || [];
+                    
+                    console.log('📊 매칭된 피드백 데이터 수신:', {
+                        count: feedbackData.length,
+                        total_matched: data.feedback?.total_matched || 0,
+                        total_unmatched: data.feedback?.total_unmatched || 0
+                    });
+                    
+                    // 타입 필터링 (클라이언트 사이드)
+                    let filteredFeedback = feedbackData;
+                    if (type !== 'all') {
+                        filteredFeedback = feedbackData.filter(feedback => {
+                            const extractedType = extractFeedbackType(feedback);
+                            return extractedType === type;
+                        });
+                    }
+                    
+                    allFeedbackData = filteredFeedback;
+                    displayFeedback(filteredFeedback);
+                }
             } catch (error) {
                 console.error('피드백 로드 실패:', error);
                 showError('피드백 데이터를 불러오는 중 오류가 발생했습니다.');
             }
         }
         
-        // 🔧 수정된 피드백 표시 함수 - 매칭 상태 표시
+        // 🔧 수정: displayFeedback - 백엔드 매칭 정보 표시
         function displayFeedback(feedbackList) {
             const container = document.getElementById('feedbackList');
             const countElement = document.getElementById('feedbackCount');
@@ -1053,11 +905,11 @@
             
             const htmlParts = feedbackList.map((feedback, index) => {
                 const safeData = {
-                    question: escapeHtml(feedback.question || '질문 정보 없음'),
-                    answer: escapeHtml(feedback.answer || '답변 정보 없음'),
+                    question: escapeHtml(feedback.qa_info?.question || '질문 정보 없음'),
+                    answer: escapeHtml(feedback.qa_info?.answer || '답변 정보 없음'),
                     feedback_id: escapeHtml(feedback.feedback_id || 'unknown'),
                     chat_id: escapeHtml(feedback.chat_id || 'unknown'),
-                    qa_id: escapeHtml(feedback.qa_id || 'unknown'),
+                    qa_id: escapeHtml(feedback.qa_info?.id || feedback.matched_qa_id || 'unknown'),
                     client_ip: feedback.client_ip ? 
                         escapeHtml(feedback.client_ip).replace(/\d+\.\d+\.\d+\.(\d+)/, '***.***.***.$1')
                         : 'unknown'
@@ -1075,33 +927,18 @@
                 const typeClass = extractedType === 'positive' ? 'positive' : 'negative';
                 const typeText = extractedType === 'positive' ? '👍 도움됨' : '👎 아쉬움';
                 
-                // ✅ 수정된 Q&A 상태 표시 (매칭 방법 포함)
+                // 🔧 수정: 백엔드 매칭 상태 표시
                 let qaStatus = '';
-                if (feedback.hasQAData) {
-                    const matchingMethod = feedback.matchingMethod || 'unknown';
-                    const methodIcon = matchingMethod === 'qa_id_direct' ? '🎯' : '🔄';
-                    const methodText = matchingMethod === 'qa_id_direct' ? 'QA ID 직접매칭' : 'Chat ID 매칭';
-                    
-                    qaStatus = `<span style="color: #28a745; font-weight: 600;">${methodIcon} Q&A 연결됨 (${methodText})</span>`;
+                if (feedback.qa_info && feedback.qa_info.id) {
+                    qaStatus = '<span style="color: #28a745; font-weight: 600;">🎯 Q&A 매칭됨 (ID 기반)</span>';
                 } else {
-                    qaStatus = '<span style="color: #dc3545;">○ Q&A 미연결</span>';
-                }
-                
-                let matchStatusText = '';
-                if (feedback.hasQAData && feedback.match_status !== undefined) {
-                    const matchLabels = {
-                        1.0: '<span style="color: #28a745;">⭕️ 매치</span>',
-                        0.0: '<span style="color: #dc3545;">✖️ 매치 안됨</span>',
-                        0.5: '<span style="color: #ffc107;">➡️ 보강 필요</span>'
-                    };
-                    matchStatusText = matchLabels[feedback.match_status] || '<span style="color: #6c757d;">- 미평가</span>';
+                    qaStatus = '<span style="color: #dc3545;">○ Q&A 미매칭</span>';
                 }
                 
                 return '<div class="data-item ' + typeClass + '">' +
                     '<div class="data-meta">' +
                         '<div style="display: flex; align-items: center; gap: 10px;">' +
                             '<span class="data-type ' + typeClass + '">' + typeText + '</span>' +
-                            matchStatusText +
                         '</div>' +
                         '<span>' + escapeHtml(date) + '</span>' +
                     '</div>' +
@@ -1110,7 +947,7 @@
                         '<div class="answer ' + (index < 5 ? '' : 'collapsed') + '" id="answer_' + index + '">' +
                             safeData.answer +
                         '</div>' +
-                        (feedback.answer && feedback.answer.length > 200 ? 
+                        (safeData.answer.length > 200 ? 
                             '<button class="expand-toggle" onclick="toggleAnswer(' + index + ')">' +
                                 '<span id="toggle_text_' + index + '">' + (index < 5 ? '접기' : '더보기') + '</span>' +
                             '</button>' : ''
@@ -1138,7 +975,7 @@
                 negativeFeedback: stats.negative || 0,
                 uniqueUsers: stats.unique_users || 0,
                 satisfactionRate: (stats.satisfaction_rate || 0) + '%',
-                totalQA: stats.total_qa || 0,  // 백엔드 계산 값
+                totalQA: stats.total_qa || 0,
                 responseRate: calculateResponseRate(stats.total_feedback || 0, stats.total_qa || 0) + '%'
             };
 
@@ -1246,7 +1083,7 @@
             });
 
             const responseCtx = document.getElementById('responseRateChart').getContext('2d');
-            const responseRateData = generateResponseRateData(allFeedbackData, allQAData, days);
+            const responseRateData = generateResponseRateData(allFeedbackData, [], days);
             
             charts.responseRateChart = new Chart(responseCtx, {
                 type: 'bar',
@@ -1473,12 +1310,11 @@
                 return;
             }
 
-            console.log('🚀 보안 강화된 대시보드 초기화 시작 (백엔드 통일)');
+            console.log('🚀 보안 강화된 대시보드 초기화 시작 (백엔드 매칭)');
             
             const isConnected = await testApiConnection();
             
             if (isConnected) {
-                await loadQAData();
                 await refreshData();
             } else {
                 console.warn('⚠️ API 연결 실패 - 오프라인 모드');
@@ -1531,7 +1367,6 @@
                 });
             }
 
-            // 페이지 로드 시 인증 상태 확인
             console.log('🔍 페이지 로드 시 인증 상태 확인...');
             checkAuthStatus().then(isAuth => {
                 console.log('🔍 인증 상태:', isAuth);
@@ -1562,7 +1397,6 @@
             }
         });
 
-        // 키보드 단축키
         document.addEventListener('keydown', function(e) {
             if (!isAuthenticated()) return;
 
@@ -1577,7 +1411,6 @@
             }
         });
 
-        // 페이지 언로드 시 정리
         window.addEventListener('beforeunload', function() {
             if (sessionTimeout) {
                 clearTimeout(sessionTimeout);
