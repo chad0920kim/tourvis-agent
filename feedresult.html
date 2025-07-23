@@ -909,7 +909,7 @@
             console.log('💬 Q&A 데이터 수:', qaData.length);
             
             return feedbackData.map((feedback, index) => {
-                const chatId = feedback.feedback || feedback.chat_id;
+                const chatId = feedback.chat_id;
                 const relatedQAs = qaData.filter(qa => qa.chat_id === chatId);
                 
                 if (relatedQAs.length > 0) {
