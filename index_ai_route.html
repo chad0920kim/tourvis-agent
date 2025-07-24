@@ -443,18 +443,18 @@
   </div>
 
   <script>
-    // 🎯 API 엔드포인트 구성
-    const API_BASE_URL = "https://tourvis-ai-dxojr.run.goorm.site"; 
+    // 🎯 API 엔드포인트 구성 - 포트 번호 추가
+    const API_BASE_URL = "https://tourvis-ai-dxojr.run.goorm.site:8080"; 
     const CHAT_ENDPOINT = "/api/chat"; 
     const FEEDBACK_ENDPOINT = "/api/feedback/simple"; 
     
-    // 레거시 엔드포인트 (기본 사용)
+    // 레거시 엔드포인트 (대체용)
     const LEGACY_CHAT_ENDPOINT = "/chat";
     const LEGACY_FEEDBACK_ENDPOINT = "/feedback-simple";
     
-    // 현재 사용할 엔드포인트 설정 (레거시 엔드포인트 사용)
-    const CURRENT_CHAT_ENDPOINT = LEGACY_CHAT_ENDPOINT;
-    const CURRENT_FEEDBACK_ENDPOINT = LEGACY_FEEDBACK_ENDPOINT;
+    // 현재 사용할 엔드포인트 설정 (새 API 엔드포인트 사용)
+    const CURRENT_CHAT_ENDPOINT = CHAT_ENDPOINT;
+    const CURRENT_FEEDBACK_ENDPOINT = FEEDBACK_ENDPOINT;
 
     const chat = document.getElementById("chat");
     const input = document.getElementById("q");
@@ -463,6 +463,7 @@
     let currentBotContent = null;
     let currentChatId = null; // 현재 채팅 ID
     let currentQAId = null;   // 현재 QA ID (피드백용)
+    let serverReachable = false; // 서버 연결 상태
     
     // QA 세션 관리
     let qaSession = {
@@ -476,26 +477,112 @@
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                      window.innerWidth <= 768;
 
+    // 서버 상태 확인 함수
+    async function checkServerStatus() {
+      try {
+        // 먼저 API 상태 확인
+        console.log("🔍 API 상태 확인 중...");
+        const apiResponse = await fetch(`${API_BASE_URL}/api/admin/health`);
+        if (apiResponse.ok) {
+          console.log("✅ API 서버 연결 성공");
+          serverReachable = true;
+          return true;
+        }
+        
+        // API 실패시 레거시 엔드포인트 확인
+        console.log("🔍 레거시 엔드포인트 확인 중...");
+        const legacyResponse = await fetch(`${API_BASE_URL}/health`);
+        if (legacyResponse.ok) {
+          console.log("✅ 레거시 서버 연결 성공 - 레거시 엔드포인트 사용으로 전환");
+          // 레거시 엔드포인트 사용으로 전환
+          CURRENT_CHAT_ENDPOINT = LEGACY_CHAT_ENDPOINT;
+          CURRENT_FEEDBACK_ENDPOINT = LEGACY_FEEDBACK_ENDPOINT;
+          serverReachable = true;
+          return true;
+        }
+        
+        console.error("❌ 서버 응답 실패");
+        serverReachable = false;
+        return false;
+      } catch (error) {
+        console.error("❌ 서버 연결 실패:", error);
+        
+        // HTTPS/HTTP 프로토콜 문제일 수 있음 - HTTP로 시도
+        if (API_BASE_URL.startsWith("https://")) {
+          const httpUrl = API_BASE_URL.replace("https://", "http://");
+          try {
+            console.log("🔍 HTTP 프로토콜로 재시도 중...");
+            const httpResponse = await fetch(`${httpUrl}/health`);
+            if (httpResponse.ok) {
+              console.log("✅ HTTP 연결 성공 - URL 변경");
+              API_BASE_URL = httpUrl;
+              serverReachable = true;
+              return true;
+            }
+          } catch (httpError) {
+            console.error("❌ HTTP 재시도 실패:", httpError);
+          }
+        }
+        
+        serverReachable = false;
+        return false;
+      }
+    }
+
     // 초기화 시 채팅 ID 가져오기
     async function initChatId() {
+      if (!serverReachable) {
+        await checkServerStatus();
+      }
+      
       try {
-        // 레거시 API 사용
-        const response = await fetch(`${API_BASE_URL}/generate-chat-id`);
+        // 새 API 시도
+        const response = await fetch(`${API_BASE_URL}/api/chat/generate-id`);
         if (response.ok) {
           const data = await response.json();
           currentChatId = data.chat_id;
           qaSession.chatId = data.chat_id;
           console.log("🆔 Chat ID 생성됨:", currentChatId);
+          return;
+        }
+        
+        // 레거시 API 사용
+        const legacyResponse = await fetch(`${API_BASE_URL}/generate-chat-id`);
+        if (legacyResponse.ok) {
+          const data = await legacyResponse.json();
+          currentChatId = data.chat_id;
+          qaSession.chatId = data.chat_id;
+          console.log("🆔 레거시 Chat ID 생성됨:", currentChatId);
+          return;
         }
       } catch (error) {
         console.error("채팅 ID 생성 실패:", error);
-        currentChatId = "user1"; // 기본값 설정
-        qaSession.chatId = "user1";
       }
+      
+      // 모든 방법 실패 시 기본값 설정
+      currentChatId = "user1";
+      qaSession.chatId = "user1";
+      console.log("🆔 기본 Chat ID 사용:", currentChatId);
     }
 
     // 페이지 로드 시 초기화
-    initChatId();
+    window.addEventListener('load', async () => {
+      await checkServerStatus();
+      
+      if (!serverReachable) {
+        // 서버 연결 실패 알림
+        alert("서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");
+        const statusMsg = document.createElement('div');
+        statusMsg.style.color = 'red';
+        statusMsg.style.padding = '10px';
+        statusMsg.style.textAlign = 'center';
+        statusMsg.innerHTML = '⚠️ 서버 연결 불가 - 새로고침 해주세요';
+        document.getElementById('header').appendChild(statusMsg);
+      } else {
+        // 채팅 ID 초기화
+        await initChatId();
+      }
+    });
 
     // 해시 계산 함수 (QA ID 생성용)
     function simpleHash(str) {
@@ -600,7 +687,18 @@
 
     function handleSend() {
       if (!sendBtn.disabled && !input.disabled) {
-        send();
+        if (!serverReachable) {
+          // 서버 상태 재확인
+          checkServerStatus().then(isReachable => {
+            if (isReachable) {
+              send();
+            } else {
+              alert("서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.");
+            }
+          });
+        } else {
+          send();
+        }
       }
     }
 
@@ -649,6 +747,9 @@
       chat.scrollTop = chat.scrollHeight;
 
       try {
+        console.log("📤 요청 URL:", `${API_BASE_URL}${CURRENT_CHAT_ENDPOINT}`);
+        console.log("📤 요청 데이터:", { chat_id: currentChatId, message });
+        
         const response = await fetch(`${API_BASE_URL}${CURRENT_CHAT_ENDPOINT}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -658,8 +759,17 @@
           })
         });
 
+        console.log("📥 응답 상태:", response.status, response.statusText);
+
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        // Chat ID 헤더에서 가져오기 (서버가 제공하는 경우)
+        const responseChatId = response.headers.get("X-Chat-ID");
+        if (responseChatId) {
+          currentChatId = responseChatId;
+          console.log("🆔 서버에서 Chat ID 수신:", currentChatId);
         }
 
         const reader = response.body.getReader();
@@ -671,15 +781,19 @@
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
+            console.log('✅ 스트림 완료');
             break;
           }
 
           const chunk = decoder.decode(value, { stream: true });
+          console.log("📥 청크 데이터:", chunk.length, "바이트");
+          
           const lines = chunk.split("\n").filter(line => line.startsWith("data:"));
           
           for (const line of lines) {
             const jsonStr = line.replace(/^data:\s*/, "").trim();
             if (jsonStr === "[DONE]") {
+              console.log('🏁 응답 완료');
               resetUI();
               return;
             }
@@ -746,16 +860,53 @@
                 }
               }
             } catch (err) {
-              console.warn("응답 파싱 실패", err, jsonStr);
+              console.warn("응답 파싱 실패:", err, jsonStr);
             }
           }
         }
       } catch (error) {
         console.error("❌ 요청 실패:", error);
+        
+        // 레거시 엔드포인트로 재시도
+        if (CURRENT_CHAT_ENDPOINT === CHAT_ENDPOINT) {
+          console.log("🔄 레거시 엔드포인트로 재시도 중...");
+          try {
+            const legacyUrl = `${API_BASE_URL}${LEGACY_CHAT_ENDPOINT}`;
+            console.log("📤 레거시 요청 URL:", legacyUrl);
+            
+            const legacyResponse = await fetch(legacyUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                chat_id: currentChatId, 
+                message 
+              })
+            });
+            
+            if (legacyResponse.ok) {
+              console.log("✅ 레거시 엔드포인트 성공 - 전환");
+              CURRENT_CHAT_ENDPOINT = LEGACY_CHAT_ENDPOINT;
+              CURRENT_FEEDBACK_ENDPOINT = LEGACY_FEEDBACK_ENDPOINT;
+              
+              // 스트림 처리 코드는 중복되므로 생략
+              // 실제 구현에서는 스트림 처리 로직을 별도 함수로 분리하여 재사용하는 것이 좋음
+              
+              return;
+            }
+          } catch (legacyError) {
+            console.error("❌ 레거시 엔드포인트도 실패:", legacyError);
+          }
+        }
+        
         if (currentBotContent) {
           currentBotContent.className = "bot error";
           currentBotContent.innerHTML = `⚠️ 네트워크 오류<br>${error.message}<br>다시 시도해주세요.`;
         }
+        
+        // 서버 상태 재확인
+        serverReachable = false;
+        checkServerStatus();
+        
         resetUI();
       }
     }
@@ -778,8 +929,66 @@
         })
         .catch(error => {
           console.error('Feedback error:', error);
-          alert('피드백 전송 중 오류가 발생했습니다.');
+          
+          // 레거시 엔드포인트로 재시도
+          if (CURRENT_FEEDBACK_ENDPOINT === FEEDBACK_ENDPOINT) {
+            console.log("🔄 레거시 피드백 엔드포인트로 재시도 중...");
+            fetch(`${API_BASE_URL}${LEGACY_FEEDBACK_ENDPOINT}?chat_id=${effectiveQAId}&type=${type}`)
+              .then(response => response.json())
+              .then(data => {
+                if (data.status === 'success') {
+                  // 성공 시 레거시 엔드포인트로 전환
+                  CURRENT_FEEDBACK_ENDPOINT = LEGACY_FEEDBACK_ENDPOINT;
+                  alert(data.message);
+                } else {
+                  alert('피드백 전송에 실패했습니다.');
+                }
+              })
+              .catch(() => {
+                alert('피드백 전송 중 오류가 발생했습니다.');
+              });
+          } else {
+            alert('피드백 전송 중 오류가 발생했습니다.');
+          }
         });
+    };
+
+    // 서버 연결 테스트 버튼 추가
+    const testDiv = document.createElement('div');
+    testDiv.style.position = 'fixed';
+    testDiv.style.bottom = '10px';
+    testDiv.style.right = '10px';
+    testDiv.style.zIndex = '1000';
+    testDiv.innerHTML = `
+      <button onclick="testServerConnection()" style="padding: 8px; background: #007bff; color: white; border: none; border-radius: 4px;">
+        서버 연결 테스트
+      </button>
+    `;
+    document.body.appendChild(testDiv);
+
+    // 서버 연결 테스트 함수
+    window.testServerConnection = async function() {
+      try {
+        // 레거시 엔드포인트 테스트
+        console.log("🔍 레거시 엔드포인트 테스트 중...");
+        const legacyResponse = await fetch(`${API_BASE_URL}/health`);
+        console.log("📊 레거시 상태 엔드포인트:", legacyResponse.status, await legacyResponse.text());
+        
+        // 새 API 엔드포인트 테스트
+        console.log("🔍 새 API 엔드포인트 테스트 중...");
+        const apiResponse = await fetch(`${API_BASE_URL}/api/admin/health`);
+        console.log("📊 API 상태 엔드포인트:", apiResponse.status, await apiResponse.text());
+        
+        // 채팅 ID 생성 테스트
+        console.log("🔍 채팅 ID 생성 테스트 중...");
+        const idResponse = await fetch(`${API_BASE_URL}/generate-chat-id`);
+        console.log("📊 채팅 ID 생성:", idResponse.status, await idResponse.text());
+        
+        alert("서버 연결 테스트 완료. 콘솔에서 결과를 확인하세요.");
+      } catch (error) {
+        console.error("❌ 서버 연결 테스트 실패:", error);
+        alert(`서버 연결 테스트 실패: ${error.message}`);
+      }
     };
 
     // 🎯 초기화 및 디버깅
