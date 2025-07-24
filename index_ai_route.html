@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>투어비스 에이전트 : 일대일문의추가</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
-<style>
+  <style>
     * {
       box-sizing: border-box;
     }
@@ -443,25 +443,34 @@
   </div>
 
   <script>
-    // 🎯 새로운 API 엔드포인트 구성
-    const API_BASE_URL = "https://tourvis-ai-dxojr.run.goorm.site"; // 서버 URL 
-    const CHAT_ENDPOINT = "/api/chat"; // 새 API 경로
-    const FEEDBACK_ENDPOINT = "/api/feedback/simple"; // 새 API 경로
+    // 🎯 API 엔드포인트 구성
+    const API_BASE_URL = "https://tourvis-ai-dxojr.run.goorm.site"; 
+    const CHAT_ENDPOINT = "/api/chat"; 
+    const FEEDBACK_ENDPOINT = "/api/feedback/simple"; 
     
-    // 🎯 레거시 엔드포인트 지원 (문제 발생 시 사용)
-    const LEGACY_CHAT_ENDPOINT = "/chat"; 
+    // 레거시 엔드포인트 (기본 사용)
+    const LEGACY_CHAT_ENDPOINT = "/chat";
     const LEGACY_FEEDBACK_ENDPOINT = "/feedback-simple";
     
-    // 현재 사용할 엔드포인트 설정 (기본은 새 API 사용)
-    const CURRENT_CHAT_ENDPOINT = CHAT_ENDPOINT;
-    const CURRENT_FEEDBACK_ENDPOINT = FEEDBACK_ENDPOINT;
+    // 현재 사용할 엔드포인트 설정 (레거시 엔드포인트 사용)
+    const CURRENT_CHAT_ENDPOINT = LEGACY_CHAT_ENDPOINT;
+    const CURRENT_FEEDBACK_ENDPOINT = LEGACY_FEEDBACK_ENDPOINT;
 
     const chat = document.getElementById("chat");
     const input = document.getElementById("q");
     const sendBtn = document.getElementById("sendBtn");
     const sendIcon = document.getElementById("sendIcon");
     let currentBotContent = null;
-    let currentChatId = null; // 🆕 현재 채팅 ID 저장용
+    let currentChatId = null; // 현재 채팅 ID
+    let currentQAId = null;   // 현재 QA ID (피드백용)
+    
+    // QA 세션 관리
+    let qaSession = {
+      chatId: null,          // 채팅 ID
+      timestamp: null,       // 타임스탬프
+      question: null,        // 질문 내용
+      questionHash: null     // 질문 해시
+    };
 
     // 🎯 모바일/PC 감지
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
@@ -470,28 +479,39 @@
     // 초기화 시 채팅 ID 가져오기
     async function initChatId() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/chat/generate-id`);
+        // 레거시 API 사용
+        const response = await fetch(`${API_BASE_URL}/generate-chat-id`);
         if (response.ok) {
           const data = await response.json();
           currentChatId = data.chat_id;
+          qaSession.chatId = data.chat_id;
           console.log("🆔 Chat ID 생성됨:", currentChatId);
-        } else {
-          // 새 API 실패 시 레거시 API로 시도
-          const legacyResponse = await fetch(`${API_BASE_URL}/generate-chat-id`);
-          if (legacyResponse.ok) {
-            const data = await legacyResponse.json();
-            currentChatId = data.chat_id;
-            console.log("🆔 레거시 Chat ID 생성됨:", currentChatId);
-          }
         }
       } catch (error) {
         console.error("채팅 ID 생성 실패:", error);
         currentChatId = "user1"; // 기본값 설정
+        qaSession.chatId = "user1";
       }
     }
 
     // 페이지 로드 시 초기화
     initChatId();
+
+    // 해시 계산 함수 (QA ID 생성용)
+    function simpleHash(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0; // 32비트 정수로 변환
+      }
+      return Math.abs(hash % 10000); // 0-9999 사이 값
+    }
+    
+    // QA ID 생성 함수
+    function generateQAId(chatId, timestamp, question) {
+      const hash = simpleHash(question);
+      return `${chatId}_${timestamp}_${hash}`;
+    }
 
     // 🎯 textarea 자동 높이 조절
     input.addEventListener('input', function() {
@@ -501,7 +521,6 @@
 
     // 🎯 Enter 키 처리
     input.addEventListener('keydown', function(e) {
-      console.log('⌨️ 키 입력:', e.key, 'Shift:', e.shiftKey);
       if (e.key === 'Enter') {
         if (!e.shiftKey) {
           e.preventDefault();
@@ -580,7 +599,6 @@
     });
 
     function handleSend() {
-      console.log('🎯 handleSend 호출됨, 버튼 상태:', sendBtn.disabled);
       if (!sendBtn.disabled && !input.disabled) {
         send();
       }
@@ -588,25 +606,28 @@
 
     async function send() {
       const message = input.value.trim();
-      console.log('📤 send() 함수 호출됨, 메시지:', message);
       
       if (!message) {
-        console.log('❌ 빈 메시지, 전송 중단');
         return;
       }
-
-      console.log('📤 전송 시작:', message); // 디버깅용
 
       // 전송 버튼 비활성화
       input.disabled = true;
       sendBtn.disabled = true;
       sendIcon.textContent = "⏳";
       
-      console.log('🔒 UI 비활성화 완료');
-
       addMsg("user", message);
       input.value = "";
       input.style.height = 'auto';
+
+      // QA 세션 정보 업데이트
+      qaSession.question = message;
+      qaSession.timestamp = Math.floor(Date.now() / 1000); // 유닉스 타임스탬프
+      qaSession.questionHash = simpleHash(message);
+      
+      // QA ID 생성
+      currentQAId = generateQAId(currentChatId, qaSession.timestamp, message);
+      console.log("🆔 생성된 QA ID:", currentQAId);
 
       // 봇 메시지 컨테이너 생성
       const botWrap = document.createElement("div");
@@ -628,29 +649,17 @@
       chat.scrollTop = chat.scrollHeight;
 
       try {
-        console.log('🌐 API 요청 시작'); // 디버깅용
-        
-        // 새 API 엔드포인트로 요청
         const response = await fetch(`${API_BASE_URL}${CURRENT_CHAT_ENDPOINT}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
-            chat_id: currentChatId || "user1", 
+            chat_id: currentChatId, 
             message 
           })
         });
 
-        console.log('📡 응답 받음:', response.status); // 디버깅용
-
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        // Chat ID 헤더에서 가져오기 (서버가 제공하는 경우)
-        const responseChatId = response.headers.get("X-Chat-ID");
-        if (responseChatId) {
-          currentChatId = responseChatId;
-          console.log("🆔 서버에서 Chat ID 수신:", currentChatId);
         }
 
         const reader = response.body.getReader();
@@ -662,7 +671,6 @@
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            console.log('✅ 스트림 완료'); // 디버깅용
             break;
           }
 
@@ -672,14 +680,12 @@
           for (const line of lines) {
             const jsonStr = line.replace(/^data:\s*/, "").trim();
             if (jsonStr === "[DONE]") {
-              console.log('🏁 응답 완료'); // 디버깅용
               resetUI();
               return;
             }
 
             try {
               const parsed = JSON.parse(jsonStr);
-              console.log('📨 파싱된 데이터:', parsed); // 디버깅용
               
               // 특수 상태 처리
               if (parsed.status) {
@@ -717,6 +723,13 @@
               
               // 일반 텍스트 응답 처리
               const delta = parsed?.choices?.[0]?.delta?.content;
+              
+              // HTML 컨텐츠 처리 (피드백 버튼 등)
+              if (parsed?.choices?.[0]?.delta?.type === 'html') {
+                botContent.innerHTML += delta;
+                continue;
+              }
+              
               if (delta) {
                 if (isFirstChunk) {
                   // 첫 번째 실제 내용이 오면 타이핑 인디케이터 제거
@@ -748,11 +761,13 @@
     }
 
     // 🎯 피드백 전송 함수 (전역 함수로 정의)
-    window.sendFeedback = function(chatId, type) {
-      // 서버에 저장된 Chat ID 사용
-      const effectiveChatId = currentChatId || chatId;
+    window.sendFeedback = function(qaId, type) {
+      // 고유 QA ID 사용하여 피드백 전송
+      const effectiveQAId = qaId || currentQAId;
       
-      fetch(`${API_BASE_URL}${CURRENT_FEEDBACK_ENDPOINT}?chat_id=${effectiveChatId}&type=${type}`)
+      console.log("📤 피드백 전송:", effectiveQAId, type);
+      
+      fetch(`${API_BASE_URL}${CURRENT_FEEDBACK_ENDPOINT}?chat_id=${effectiveQAId}&type=${type}`)
         .then(response => response.json())
         .then(data => {
           if (data.status === 'success') {
@@ -772,6 +787,7 @@
     console.log('🎯 전송 버튼 요소:', sendBtn);
     console.log('📝 입력 필드 요소:', input);
     console.log('🌐 API 엔드포인트:', `${API_BASE_URL}${CURRENT_CHAT_ENDPOINT}`);
+    console.log('🔄 피드백 엔드포인트:', `${API_BASE_URL}${CURRENT_FEEDBACK_ENDPOINT}`);
     
     setTimeout(() => {
       if (!isMobile) {
