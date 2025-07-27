@@ -867,14 +867,21 @@
             try {
                 console.log('🔄 Q&A 데이터 새로고침:', { days });
                 
-                const data = await fetchConversations(days, 100);
-                currentData = data;
+                const data = await fetchConversations(days, 200); // 더 많은 데이터 요청
                 
                 console.log('📊 Q&A 새로고침 완료:', {
                     conversations: data.conversations?.length || 0,
                     total: data.total || 0,
-                    stats: data.stats
+                    stats: data.stats,
+                    debug_info: data.debug_info
                 });
+                
+                // 🔧 추가: 백엔드 일별 분포 정보 확인
+                if (data.debug_info?.filtering_results?.daily_distribution) {
+                    console.log('🔍 백엔드 일별 분포:', data.debug_info.filtering_results.daily_distribution);
+                }
+                
+                currentData = data;
                 
                 updateConversationStats(data);
                 updateConversationCharts(data);
@@ -889,6 +896,7 @@
                     stats: { unique_sessions: 0, match_distribution: { good: 0, bad: 0, improve: 0, none: 0 } }
                 };
                 updateConversationStats(currentData);
+                updateConversationCharts(currentData);
             }
         }
 
@@ -1243,8 +1251,19 @@
                 return;
             }
 
+            console.log('💬 Q&A 차트 업데이트 시작:', conversationData);
+            
             const conversations = conversationData.conversations || [];
             const stats = conversationData.stats || {};
+            
+            console.log('💬 차트용 대화 데이터:', {
+                total_conversations: conversations.length,
+                first_3_samples: conversations.slice(0, 3).map(c => ({
+                    id: c.id,
+                    timestamp: c.timestamp,
+                    question_preview: c.question?.substring(0, 30) + '...'
+                }))
+            });
             
             if (charts.matchStatusChart) charts.matchStatusChart.destroy();
             
@@ -1286,8 +1305,18 @@
             
             const timeCtx = document.getElementById('qaTimeChart').getContext('2d');
             const days = parseInt(document.getElementById('conversationDaysSelect').value);
+            
+            console.log('💬 일별 데이터 생성 시작:', { days, conversations_count: conversations.length });
+            
+            // 🔧 수정: 실제 백엔드 데이터 사용
             const dailyData = generateDailyQAData(conversations, days);
             const labels = generateTimeLabels(days);
+            
+            console.log('💬 차트 생성:', {
+                labels: labels,
+                data: dailyData,
+                data_sum: dailyData.reduce((a, b) => a + b, 0)
+            });
             
             charts.qaTimeChart = new Chart(timeCtx, {
                 type: 'bar',
