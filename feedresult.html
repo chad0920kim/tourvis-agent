@@ -1307,14 +1307,16 @@
             
             let dailyData, labels;
             
-            // 🔧 수정: 백엔드 데이터 우선 사용
+            // 🔧 수정: 백엔드 데이터 우선 사용 - 키 기반 레이블 생성
             if (backendDailyDistribution && Object.keys(backendDailyDistribution).length > 0) {
                 console.log('✅ 백엔드 일별 분포 사용:', backendDailyDistribution);
                 
-                labels = generateTimeLabels(days);
-                dailyData = generateDailyDataFromBackend(backendDailyDistribution, days);
+                // 🔧 수정: 백엔드 날짜 키로 레이블과 데이터 생성
+                const result = generateLabelsAndDataFromBackend(backendDailyDistribution, days);
+                labels = result.labels;
+                dailyData = result.data;
                 
-                console.log('📊 백엔드 기반 차트 데이터:', {
+                console.log('📊 백엔드 키 기반 차트 데이터:', {
                     labels: labels,
                     data: dailyData,
                     data_sum: dailyData.reduce((a, b) => a + b, 0)
@@ -1360,8 +1362,10 @@
             
             console.log('🏷️ 차트 레이블 생성:', { days, today: today.toISOString().split('T')[0] });
             
+            // 🔧 수정: 오늘부터 역순으로 days일간 생성 (오늘 포함)
             for (let i = 0; i < days; i++) {
                 const targetDate = new Date(today);
+                // 🔧 수정: 오늘(i=days-1)부터 과거(i=0)까지
                 targetDate.setDate(targetDate.getDate() - (days - 1 - i));
                 
                 // 🔧 수정: ISO 문자열에서 직접 날짜 추출 (시간대 문제 해결)
@@ -1381,11 +1385,62 @@
             }
             
             console.log('🏷️ 생성된 레이블:', labels);
-            console.log('🔧 ISO 문자열에서 직접 추출하여 시간대 문제 해결');
+            console.log('🔧 오늘 포함, 과거부터 오늘까지 순서로 생성');
+            
+            // 🔧 검증: 첫 번째와 마지막 날짜 확인
+            const firstDate = new Date(today);
+            firstDate.setDate(firstDate.getDate() - (days - 1));
+            const lastDate = new Date(today);
+            
+            console.log('🔧 검증: 첫 날짜 =', firstDate.toISOString().split('T')[0]);
+            console.log('🔧 검증: 마지막 날짜 =', lastDate.toISOString().split('T')[0], '(오늘)');
+            
             return labels;
         }
 
-        // 🔧 새로운 함수: 백엔드 일별 분포를 차트 데이터로 변환
+        // 🔧 새로운 함수: 백엔드 날짜 키로 레이블과 데이터 생성
+        function generateLabelsAndDataFromBackend(backendDailyDistribution, days) {
+            console.log('🔧 백엔드 키 기반 레이블/데이터 생성:', { days, backendData: backendDailyDistribution });
+            
+            // 백엔드 날짜 키들을 정렬
+            const dateKeys = Object.keys(backendDailyDistribution).sort();
+            console.log('🔧 정렬된 백엔드 날짜 키들:', dateKeys);
+            
+            const labels = [];
+            const data = [];
+            
+            // 🔧 백엔드 키를 순서대로 처리
+            dateKeys.forEach((dateKey, index) => {
+                // 날짜 문자열에서 월/일 추출
+                const [year, month, day] = dateKey.split('-').map(Number);
+                
+                // 레이블 생성
+                let label;
+                if (days <= 7) {
+                    label = `${month}월 ${day}일`;
+                } else {
+                    label = `${month}/${day}`;
+                }
+                
+                // 데이터 추출
+                const dayData = backendDailyDistribution[dateKey];
+                const count = dayData ? (dayData.count || dayData) : 0;
+                
+                labels.push(label);
+                data.push(typeof count === 'number' ? count : 0);
+                
+                console.log(`  키 ${index}: ${dateKey} -> ${label} (${data[index]}개)`);
+            });
+            
+            console.log('🔧 백엔드 키 기반 결과:');
+            console.log('  - 레이블:', labels);
+            console.log('  - 데이터:', data);
+            console.log('  - 총합:', data.reduce((a, b) => a + b, 0));
+            
+            return { labels, data };
+        }
+
+        // 🔧 수정된 함수: 백엔드 일별 분포를 차트 데이터로 변환
         function generateDailyDataFromBackend(backendDailyDistribution, days) {
             console.log('🔧 백엔드 데이터로 차트 배열 생성:', { days, backendData: backendDailyDistribution });
             
@@ -1394,9 +1449,10 @@
             
             const dailyData = new Array(days).fill(0);
             
-            // 각 날짜에 대해 백엔드 데이터에서 값 찾기
+            // 🔧 수정: 오늘부터 역순으로 days일간 생성 (오늘 포함)
             for (let i = 0; i < days; i++) {
                 const targetDate = new Date(today);
+                // 🔧 수정: 오늘(i=days-1)부터 과거(i=0)까지
                 targetDate.setDate(targetDate.getDate() - (days - 1 - i));
                 const dateStr = targetDate.toISOString().split('T')[0];
                 
@@ -1406,11 +1462,23 @@
                 
                 dailyData[i] = typeof count === 'number' ? count : 0;
                 
-                console.log(`  날짜 ${i}: ${dateStr} -> ${dailyData[i]}개 (백엔드: ${JSON.stringify(dayData)})`);
+                console.log(`  인덱스 ${i}: ${dateStr} -> ${dailyData[i]}개 (백엔드: ${JSON.stringify(dayData)})`);
             }
             
             console.log('🔧 백엔드 기반 최종 배열:', dailyData);
             console.log('🔧 총합:', dailyData.reduce((a, b) => a + b, 0));
+            
+            // 🔧 검증: 백엔드 키 vs 생성된 날짜 비교
+            const backendDates = Object.keys(backendDailyDistribution).sort();
+            console.log('🔧 백엔드 날짜 키들:', backendDates);
+            
+            const generatedDates = [];
+            for (let i = 0; i < days; i++) {
+                const targetDate = new Date(today);
+                targetDate.setDate(targetDate.getDate() - (days - 1 - i));
+                generatedDates.push(targetDate.toISOString().split('T')[0]);
+            }
+            console.log('🔧 생성된 날짜들:', generatedDates);
             
             return dailyData;
         }
