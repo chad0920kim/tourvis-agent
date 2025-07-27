@@ -1256,13 +1256,12 @@
             const conversations = conversationData.conversations || [];
             const stats = conversationData.stats || {};
             
-            console.log('💬 차트용 대화 데이터:', {
+            // 🔧 수정: 백엔드 일별 분포 데이터 직접 사용
+            const backendDailyDistribution = conversationData.debug_info?.filtering_results?.daily_distribution;
+            
+            console.log('💬 차트용 데이터:', {
                 total_conversations: conversations.length,
-                first_3_samples: conversations.slice(0, 3).map(c => ({
-                    id: c.id,
-                    timestamp: c.timestamp,
-                    question_preview: c.question?.substring(0, 30) + '...'
-                }))
+                backend_daily_distribution: backendDailyDistribution
             });
             
             if (charts.matchStatusChart) charts.matchStatusChart.destroy();
@@ -1306,17 +1305,32 @@
             const timeCtx = document.getElementById('qaTimeChart').getContext('2d');
             const days = parseInt(document.getElementById('conversationDaysSelect').value);
             
-            console.log('💬 일별 데이터 생성 시작:', { days, conversations_count: conversations.length });
+            let dailyData, labels;
             
-            // 🔧 수정: 실제 백엔드 데이터 사용
-            const dailyData = generateDailyQAData(conversations, days);
-            const labels = generateTimeLabels(days);
-            
-            console.log('💬 차트 생성:', {
-                labels: labels,
-                data: dailyData,
-                data_sum: dailyData.reduce((a, b) => a + b, 0)
-            });
+            // 🔧 수정: 백엔드 데이터 우선 사용
+            if (backendDailyDistribution && Object.keys(backendDailyDistribution).length > 0) {
+                console.log('✅ 백엔드 일별 분포 사용:', backendDailyDistribution);
+                
+                labels = generateTimeLabels(days);
+                dailyData = generateDailyDataFromBackend(backendDailyDistribution, days);
+                
+                console.log('📊 백엔드 기반 차트 데이터:', {
+                    labels: labels,
+                    data: dailyData,
+                    data_sum: dailyData.reduce((a, b) => a + b, 0)
+                });
+            } else {
+                console.log('⚠️ 백엔드 데이터 없음, 프론트엔드 처리 사용');
+                
+                dailyData = generateDailyQAData(conversations, days);
+                labels = generateTimeLabels(days);
+                
+                console.log('📊 프론트엔드 기반 차트 데이터:', {
+                    labels: labels,
+                    data: dailyData,
+                    data_sum: dailyData.reduce((a, b) => a + b, 0)
+                });
+            }
             
             charts.qaTimeChart = new Chart(timeCtx, {
                 type: 'bar',
@@ -1350,9 +1364,9 @@
                 const targetDate = new Date(today);
                 targetDate.setDate(targetDate.getDate() - (days - 1 - i));
                 
-                // 🔧 수정: 직접 월/일 추출하여 레이블 생성
-                const month = targetDate.getMonth() + 1; // 0부터 시작하므로 +1
-                const day = targetDate.getDate();
+                // 🔧 수정: ISO 문자열에서 직접 날짜 추출 (시간대 문제 해결)
+                const dateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD
+                const [year, month, day] = dateStr.split('-').map(Number);
                 
                 let label;
                 if (days <= 7) {
@@ -1363,50 +1377,78 @@
                 
                 labels.push(label);
                 
-                const dateStr = targetDate.toISOString().split('T')[0];
-                console.log(`  레이블 ${i}: ${dateStr} -> ${label} (월:${month}, 일:${day})`);
+                console.log(`  레이블 ${i}: ${dateStr} -> ${label} (ISO에서 추출: 월=${month}, 일=${day})`);
             }
             
             console.log('🏷️ 생성된 레이블:', labels);
+            console.log('🔧 ISO 문자열에서 직접 추출하여 시간대 문제 해결');
             return labels;
+        }
+
+        // 🔧 새로운 함수: 백엔드 일별 분포를 차트 데이터로 변환
+        function generateDailyDataFromBackend(backendDailyDistribution, days) {
+            console.log('🔧 백엔드 데이터로 차트 배열 생성:', { days, backendData: backendDailyDistribution });
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const dailyData = new Array(days).fill(0);
+            
+            // 각 날짜에 대해 백엔드 데이터에서 값 찾기
+            for (let i = 0; i < days; i++) {
+                const targetDate = new Date(today);
+                targetDate.setDate(targetDate.getDate() - (days - 1 - i));
+                const dateStr = targetDate.toISOString().split('T')[0];
+                
+                // 백엔드 데이터에서 해당 날짜의 count 찾기
+                const dayData = backendDailyDistribution[dateStr];
+                const count = dayData ? (dayData.count || dayData) : 0;
+                
+                dailyData[i] = typeof count === 'number' ? count : 0;
+                
+                console.log(`  날짜 ${i}: ${dateStr} -> ${dailyData[i]}개 (백엔드: ${JSON.stringify(dayData)})`);
+            }
+            
+            console.log('🔧 백엔드 기반 최종 배열:', dailyData);
+            console.log('🔧 총합:', dailyData.reduce((a, b) => a + b, 0));
+            
+            return dailyData;
         }
 
         function generateDailyQAData(conversations, days) {
             console.log('📊 Q&A 일별 데이터 생성:', { conversations: conversations.length, days });
             
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // 오늘 00:00:00으로 설정
+            today.setHours(0, 0, 0, 0);
             
             const dailyData = new Array(days).fill(0);
             const dailyDetails = {}; // 디버깅용
             
-            // 🔧 수정: 간단한 날짜 처리
             conversations.forEach((conv, index) => {
                 if (conv.timestamp) {
                     try {
-                        // 🔧 수정: 복잡한 시간대 변환 제거
                         const convDate = new Date(conv.timestamp);
                         
-                        // 🔧 수정: 단순한 날짜 차이 계산 (시간 무시)
-                        const convDateOnly = new Date(convDate.getFullYear(), convDate.getMonth(), convDate.getDate());
-                        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                        // 🔧 수정: 두 날짜 모두 ISO 문자열에서 날짜 부분만 추출
+                        const convDateStr = convDate.toISOString().split('T')[0];
+                        const todayStr = today.toISOString().split('T')[0];
                         
-                        const timeDiff = todayOnly - convDateOnly;
+                        // 🔧 수정: 날짜 문자열로 직접 비교
+                        const convDateObj = new Date(convDateStr + 'T00:00:00.000Z');
+                        const todayObj = new Date(todayStr + 'T00:00:00.000Z');
+                        
+                        const timeDiff = todayObj - convDateObj;
                         const daysDiff = Math.floor(timeDiff / (24 * 60 * 60 * 1000));
                         
-                        // 🔧 수정: 배열 인덱스 계산
                         const dayIndex = days - 1 - daysDiff;
-                        
-                        const dateKey = convDateOnly.toISOString().split('T')[0];
                         
                         if (index < 5) { // 처음 5개만 상세 로그
                             console.log(`[SAMPLE ${index}] 대화:`, {
                                 original_timestamp: conv.timestamp,
-                                parsed_date: convDate.toISOString(),
-                                date_only: dateKey,
+                                conv_date_str: convDateStr,
+                                today_str: todayStr,
                                 days_diff: daysDiff,
-                                day_index: dayIndex,
-                                today_str: todayOnly.toISOString().split('T')[0]
+                                day_index: dayIndex
                             });
                         }
                         
@@ -1414,17 +1456,17 @@
                             dailyData[dayIndex]++;
                             
                             // 디버깅 정보 저장
-                            if (!dailyDetails[dateKey]) {
-                                dailyDetails[dateKey] = { count: 0, conversations: [] };
+                            if (!dailyDetails[convDateStr]) {
+                                dailyDetails[convDateStr] = { count: 0, conversations: [] };
                             }
-                            dailyDetails[dateKey].count++;
-                            dailyDetails[dateKey].conversations.push({
+                            dailyDetails[convDateStr].count++;
+                            dailyDetails[convDateStr].conversations.push({
                                 id: conv.id,
                                 question: conv.question?.substring(0, 30) + '...'
                             });
                             
                             if (index < 10) { // 처음 10개만 상세 로그
-                                console.log(`✅ 날짜 매칭: ${dateKey} -> 인덱스 ${dayIndex}`);
+                                console.log(`✅ 날짜 매칭: ${convDateStr} -> 인덱스 ${dayIndex}`);
                             }
                         } else {
                             if (index < 5) { // 처음 5개만 경고
