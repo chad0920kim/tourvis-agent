@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>투어비스 고객센터 에이전트 대시보드2</title>
+    <title>투어비스 고객센터 에이전트 대시보드</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -1313,27 +1313,29 @@
         function generateTimeLabels(days) {
             const labels = [];
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // 오늘 00:00:00으로 설정
+            today.setHours(0, 0, 0, 0);
             
             console.log('🏷️ 차트 레이블 생성:', { days, today: today.toISOString().split('T')[0] });
             
             for (let i = 0; i < days; i++) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - (days - 1 - i)); // 과거부터 오늘까지 순서
+                const targetDate = new Date(today);
+                targetDate.setDate(targetDate.getDate() - (days - 1 - i));
+                
+                // 🔧 수정: 직접 월/일 추출하여 레이블 생성
+                const month = targetDate.getMonth() + 1; // 0부터 시작하므로 +1
+                const day = targetDate.getDate();
                 
                 let label;
                 if (days <= 7) {
-                    label = date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+                    label = `${month}월 ${day}일`;
                 } else {
-                    label = date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+                    label = `${month}/${day}`;
                 }
                 
                 labels.push(label);
                 
-                // 처음 몇 개만 로그
-                if (i < Math.min(days, 5)) {
-                    console.log(`  레이블 ${i}: ${date.toISOString().split('T')[0]} -> ${label}`);
-                }
+                const dateStr = targetDate.toISOString().split('T')[0];
+                console.log(`  레이블 ${i}: ${dateStr} -> ${label} (월:${month}, 일:${day})`);
             }
             
             console.log('🏷️ 생성된 레이블:', labels);
@@ -1349,60 +1351,48 @@
             const dailyData = new Array(days).fill(0);
             const dailyDetails = {}; // 디버깅용
             
-            // 각 날짜별 초기화
-            for (let i = 0; i < days; i++) {
-                const targetDate = new Date(today);
-                targetDate.setDate(targetDate.getDate() - (days - 1 - i));
-                const dateKey = targetDate.toISOString().split('T')[0];
-                dailyDetails[dateKey] = { count: 0, conversations: [] };
-            }
-            
+            // 🔧 수정: 간단한 날짜 처리
             conversations.forEach((conv, index) => {
                 if (conv.timestamp) {
                     try {
-                        // 🔧 수정: 더 정확한 날짜 파싱
-                        let convDate;
-                        if (conv.timestamp.includes('Z')) {
-                            convDate = new Date(conv.timestamp);
-                        } else if (conv.timestamp.includes('+')) {
-                            convDate = new Date(conv.timestamp);
-                        } else {
-                            // ISO 형식이 아닌 경우 한국 시간대로 파싱
-                            convDate = new Date(conv.timestamp + 'Z');
-                        }
+                        // 🔧 수정: 복잡한 시간대 변환 제거
+                        const convDate = new Date(conv.timestamp);
                         
-                        // 한국 시간대로 변환
-                        const koreaTime = new Date(convDate.getTime() + (9 * 60 * 60 * 1000));
-                        koreaTime.setHours(0, 0, 0, 0); // 시간 부분 제거
+                        // 🔧 수정: 단순한 날짜 차이 계산 (시간 무시)
+                        const convDateOnly = new Date(convDate.getFullYear(), convDate.getMonth(), convDate.getDate());
+                        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
                         
-                        // 🔧 수정: 정확한 날짜 차이 계산
-                        const timeDiff = today - koreaTime;
+                        const timeDiff = todayOnly - convDateOnly;
                         const daysDiff = Math.floor(timeDiff / (24 * 60 * 60 * 1000));
                         
                         // 🔧 수정: 배열 인덱스 계산
                         const dayIndex = days - 1 - daysDiff;
                         
-                        console.log(`[${index < 5 ? 'SAMPLE' : 'DEBUG'}] 대화 ${index}:`, {
-                            original_timestamp: conv.timestamp,
-                            parsed_date: convDate.toISOString(),
-                            korea_date: koreaTime.toISOString().split('T')[0],
-                            days_diff: daysDiff,
-                            day_index: dayIndex,
-                            today_str: today.toISOString().split('T')[0]
-                        });
+                        const dateKey = convDateOnly.toISOString().split('T')[0];
+                        
+                        if (index < 5) { // 처음 5개만 상세 로그
+                            console.log(`[SAMPLE ${index}] 대화:`, {
+                                original_timestamp: conv.timestamp,
+                                parsed_date: convDate.toISOString(),
+                                date_only: dateKey,
+                                days_diff: daysDiff,
+                                day_index: dayIndex,
+                                today_str: todayOnly.toISOString().split('T')[0]
+                            });
+                        }
                         
                         if (dayIndex >= 0 && dayIndex < days) {
                             dailyData[dayIndex]++;
                             
                             // 디버깅 정보 저장
-                            const dateKey = koreaTime.toISOString().split('T')[0];
-                            if (dailyDetails[dateKey]) {
-                                dailyDetails[dateKey].count++;
-                                dailyDetails[dateKey].conversations.push({
-                                    id: conv.id,
-                                    question: conv.question?.substring(0, 30) + '...'
-                                });
+                            if (!dailyDetails[dateKey]) {
+                                dailyDetails[dateKey] = { count: 0, conversations: [] };
                             }
+                            dailyDetails[dateKey].count++;
+                            dailyDetails[dateKey].conversations.push({
+                                id: conv.id,
+                                question: conv.question?.substring(0, 30) + '...'
+                            });
                             
                             if (index < 10) { // 처음 10개만 상세 로그
                                 console.log(`✅ 날짜 매칭: ${dateKey} -> 인덱스 ${dayIndex}`);
@@ -1431,7 +1421,7 @@
                 const targetDate = new Date(today);
                 targetDate.setDate(targetDate.getDate() - (days - 1 - index));
                 const dateStr = targetDate.toISOString().split('T')[0];
-                console.log(`  ${dateStr}: ${count}개`);
+                console.log(`  ${dateStr}: ${count}개 (인덱스 ${index})`);
             });
             
             console.log('📊 상세 날짜별 분석:', dailyDetails);
