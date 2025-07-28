@@ -1270,9 +1270,10 @@
       
       // 터치 스크롤 개선
       let touchStartY = 0;
-      chat.addEventListener('touchstart', (e) => {
-        touchStartY = e.touches[0].clientY;
-      });
+chat.addEventListener('touchstart', (e) => {
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
       
       chat.addEventListener('touchmove', (e) => {
         const touchY = e.touches[0].clientY;
