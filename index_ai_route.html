@@ -788,9 +788,18 @@
     }
 
     function convertLinks(text) {
-      const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
-      return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
-    }
+  // 잘못된 링크 형식 수정: URL' target='_blank'>텍스트 → <a href="URL" target="_blank">텍스트</a>
+  text = text.replace(/(https?:\/\/[^\s']+)'\s*target='_blank'>([^<]+)/g, '<a href="$1" target="_blank">$2</a>');
+  
+  // 이미 올바른 HTML 링크가 있으면 추가 변환하지 않음
+  if (text.includes('<a href=') && text.includes('target="_blank"')) {
+    return text;
+  }
+  
+  // 단순 URL만 변환
+  const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
+  return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+}
 
     function createTypingIndicator() {
       return `<div class="typing-indicator">답변 생성 중 <span></span><span></span><span></span></div>`;
