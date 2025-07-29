@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>투어비스 에이전트 - 1:1 + route2</title>
   <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
-<style>
+  <style>
     * {
       box-sizing: border-box;
     }
@@ -75,7 +75,9 @@
       padding: 12px 16px;
       border-radius: 18px;
       max-width: 85%;
+      white-space: pre-wrap;
       word-wrap: break-word;
+      line-height: 1.4;
       font-size: 15px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
@@ -85,11 +87,8 @@
       color: white;
       align-self: flex-end;
       border-bottom-right-radius: 6px;
-      white-space: pre-wrap;
-      line-height: 1.4;
     }
     
-    /* 🔧 개선된 봇 메시지 스타일 - 줄간격 최적화 */
     .bot {
       background: white;
       border: 1px solid #e1e5e9;
@@ -97,77 +96,6 @@
       min-height: 20px;
       transition: all 0.2s ease-out;
       border-bottom-left-radius: 6px;
-      line-height: 1.5;
-      white-space: normal;  /* pre-wrap에서 normal로 변경 */
-    }
-    
-    /* 🔧 봇 메시지 내 HTML 요소별 간격 조정 */
-    .bot h1, .bot h2, .bot h3 {
-      margin: 8px 0 6px 0;
-      line-height: 1.3;
-      font-weight: 600;
-    }
-
-    .bot h1 {
-      font-size: 18px;
-      color: #333;
-    }
-
-    .bot h2 {
-      font-size: 17px;
-      color: #333;
-    }
-
-    .bot h3 {
-      font-size: 16px;
-      color: #333;
-    }
-
-    .bot ol, .bot ul {
-      margin: 8px 0;
-      padding-left: 20px;
-    }
-
-    .bot li {
-      margin: 4px 0;
-      line-height: 1.4;
-    }
-
-    .bot p {
-      margin: 6px 0;
-    }
-
-    .bot br {
-      line-height: 0.5;
-      margin: 2px 0;
-    }
-
-    /* 🔧 링크 스타일 개선 */
-    .bot a {
-      color: #007bff;
-      text-decoration: none;
-      border-bottom: 1px solid transparent;
-      transition: border-color 0.2s;
-    }
-
-    .bot a:hover {
-      border-bottom-color: #007bff;
-      text-decoration: none;
-    }
-
-    /* 🔧 강조 텍스트 및 코드 스타일 */
-    .bot strong {
-      font-weight: 600;
-      color: #333;
-    }
-
-    .bot code {
-      background: #f8f9fa;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9em;
-      color: #e83e8c;
     }
     
     .bot.typo-processing {
@@ -371,22 +299,6 @@
       .bot {
         border-bottom-left-radius: 4px;
       }
-
-      /* 🔧 모바일에서 봇 메시지 HTML 요소 간격 조정 */
-      .bot h1, .bot h2, .bot h3 {
-        margin: 6px 0 4px 0;
-        font-size: 14px;
-      }
-
-      .bot ol, .bot ul {
-        margin: 6px 0;
-        padding-left: 16px;
-      }
-
-      .bot li {
-        margin: 3px 0;
-        font-size: 13px;
-      }
       
       .timestamp {
         font-size: 10px;
@@ -482,14 +394,6 @@
       .bot {
         background: #3a3a3a;
         border-color: #4a4a4a;
-        color: #ffffff;
-      }
-
-      .bot h1, .bot h2, .bot h3 {
-        color: #ffffff;
-      }
-
-      .bot strong {
         color: #ffffff;
       }
 
@@ -787,20 +691,10 @@
       }, 50);
     }
 
-function convertLinks(text) {
-  const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
-  return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
-}
-  
-  // 이미 올바른 HTML 링크가 있으면 추가 변환하지 않음
-  if (text.includes('<a href=') && text.includes('target="_blank"')) {
-    return text;
-  }
-  
-  // 단순 URL만 변환
-  const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
-  return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
-}
+    function convertLinks(text) {
+      const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
+      return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+    }
 
     function createTypingIndicator() {
       return `<div class="typing-indicator">답변 생성 중 <span></span><span></span><span></span></div>`;
