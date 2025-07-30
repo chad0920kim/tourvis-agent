@@ -320,9 +320,9 @@
     </div>
 
     <script>
-        // 🔧 API 기본 URL 수정 - 로컬 호스트에서 8000 포트 사용
+        // 🔧 수정: API 기본 URL - 8505 포트로 변경
         const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? `http://${window.location.hostname}:8000`
+            ? `http://${window.location.hostname}:8505`
             : window.location.origin;
 
         let charts = {};
@@ -623,11 +623,11 @@
                     
                     if (isAuthenticated()) {
                         try {
-                            const authResponse = await makeAuthenticatedRequest(API_BASE_URL + '/api/health');
+                            const authResponse = await makeAuthenticatedRequest(API_BASE_URL + '/dashboard/health');
                             if (authResponse.ok) {
                                 const authData = await authResponse.json();
                                 console.log('✅ 인증된 API 연결 성공:', authData);
-                                updateConnectionStatus(true, `${data.service} (${authData.user})`);
+                                updateConnectionStatus(true, `${data.service} (인증됨)`);
                                 return true;
                             }
                         } catch (authError) {
