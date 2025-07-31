@@ -98,7 +98,9 @@ min-height: 20px;
 transition: all 0.2s ease-out;
 border-bottom-left-radius: 6px;
 line-height: 1.5;
-white-space: normal;  /* pre-wrap에서 normal로 변경 */
+white-space: normal;
+word-break: break-word;
+overflow-wrap: break-word;
 }
 
 /* 🔧 봇 메시지 내 HTML 요소별 간격 조정 */
@@ -161,13 +163,24 @@ font-weight: 600;
 color: #333;
 }
 
-.bot code {
+.bot code:not(pre code) {
 background: #f8f9fa;
 padding: 2px 6px;
 border-radius: 4px;
 font-family: 'Courier New', monospace;
 font-size: 0.9em;
 color: #e83e8c;
+}
+
+/* 코드 블록 스타일 */
+.bot pre {
+background: #f8f9fa;
+padding: 12px;
+border-radius: 6px;
+overflow-x: auto;
+white-space: pre-wrap;
+margin: 8px 0;
+border-left: 3px solid #007bff;
 }
 
 .bot.typo-processing {
@@ -787,22 +800,33 @@ chat.scrollTop = chat.scrollHeight;
 }, 50);
 }
 
-    function convertLinks(text) {
-  // 잘못된 링크 형식 수정: URL' target='_blank'>텍스트 → <a href="URL" target="_blank">텍스트</a>
-  text = text.replace(/(https?:\/\/[^\s']+)'\s*target='_blank'>([^<]+)/g, '<a href="$1" target="_blank">$2</a>');
+// 🔧 개선된 convertLinks 함수 - 줄바꿈 문제 해결
 function convertLinks(text) {
-  const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
-  return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
-}
-
-// 이미 올바른 HTML 링크가 있으면 추가 변환하지 않음
-if (text.includes('<a href=') && text.includes('target="_blank"')) {
-return text;
-}
-
-// 단순 URL만 변환
-const urlRegex = /(https?:\/\/[^\s)\]]+)/g;
-return text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+  // 1. HTML 엔티티 디코딩 (필요한 경우)
+  text = text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  
+  // 2. 마크다운 스타일 줄바꿈 처리 (두 개의 공백 + \n)
+  text = text.replace(/  \n/g, '<br>');
+  
+  // 3. 일반 줄바꿈 처리 - 핵심 수정사항
+  text = text.replace(/\n/g, '<br>');
+  
+  // 4. 연속된 <br> 태그 정리 (3개 이상 연속 시 2개로 제한)
+  text = text.replace(/(<br>\s*){3,}/g, '<br><br>');
+  
+  // 5. 잘못된 링크 형식 수정
+  text = text.replace(/(https?:\/\/[^\s']+)'\s*target='_blank'>([^<]+)/g, '<a href="$1" target="_blank">$2</a>');
+  
+  // 6. 이미 올바른 HTML 링크가 있으면 추가 변환하지 않음
+  if (text.includes('<a href=') && text.includes('target="_blank"')) {
+    return text;
+  }
+  
+  // 7. 단순 URL을 링크로 변환 (이미 <a> 태그 안에 있는 URL은 제외)
+  const urlRegex = /(https?:\/\/[^\s)\]<]+)(?![^<]*<\/a>)/g;
+  text = text.replace(urlRegex, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+  
+  return text;
 }
 
 function createTypingIndicator() {
@@ -1382,7 +1406,6 @@ let touchStartY = 0;
 chat.addEventListener('touchstart', (e) => {
 touchStartY = e.touches[0].clientY;
 }, { passive: true });
-
 
 chat.addEventListener('touchmove', (e) => {
 const touchY = e.touches[0].clientY;
