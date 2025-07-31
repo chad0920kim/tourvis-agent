@@ -91,7 +91,16 @@
         .data-details { font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
         .loading, .error { text-align: center; padding: 40px; color: #666; }
         .error { color: #dc3545; background: #f8d7da; border-radius: 8px; }
-        @media (max-width: 768px) { .dashboard-container { padding: 10px; } .header { flex-direction: column; gap: 15px; text-align: center; } .header-controls { flex-direction: column; width: 100%; } .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; } .charts-grid { grid-template-columns: 1fr; gap: 15px; } .controls-row { flex-direction: column; align-items: stretch; } .data-filters { flex-wrap: wrap; } }
+        .api-path-info { font-size: 0.85em; color: #17a2b8; margin-top: 5px; padding: 5px; background: #d1ecf1; border-radius: 4px; border-left: 4px solid #17a2b8; }
+        @media (max-width: 768px) { 
+            .dashboard-container { padding: 10px; } 
+            .header { flex-direction: column; gap: 15px; text-align: center; } 
+            .header-controls { flex-direction: column; width: 100%; } 
+            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; } 
+            .charts-grid { grid-template-columns: 1fr; gap: 15px; } 
+            .controls-row { flex-direction: column; align-items: stretch; } 
+            .data-filters { flex-wrap: wrap; } 
+        }
     </style>
 </head>
 <body>
@@ -171,6 +180,9 @@
                 </div>
                 <div class="date-calculation-info" id="dateCalculationInfo">
                     🔧 날짜 계산: 백엔드에서 통일된 방식으로 처리됩니다
+                </div>
+                <div class="api-path-info" id="apiPathInfo">
+                    🔗 API 경로: /dashboard/* (수정된 경로 사용)
                 </div>
             </div>
 
@@ -316,14 +328,20 @@
                 <h3><i class="fas fa-users"></i> 사용자 관리</h3>
                 <div id="usersList"></div>
             </div>
+            <div class="admin-section">
+                <h3><i class="fas fa-shield-alt"></i> 로그인 시도 기록</h3>
+                <div id="loginAttemptsList"></div>
+            </div>
         </div>
     </div>
 
     <script>
-        // 🔧 수정: API 기본 URL - 8505 포트로 변경
-        const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? `http://${window.location.hostname}:8505`
-            : window.location.origin;
+        // 🔧 수정된 API Base URL
+        const API_BASE_URL = window.location.hostname === 'chad0920kim.github.io' 
+            ? 'https://tourvis-ai-dxojr.run.goorm.site'     // GitHub Pages용
+            : window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:8080'                       // 올바른 포트
+            : 'https://tourvis-ai-dxojr.run.goorm.site';    // 올바른 서버 주소
 
         let charts = {};
         let currentData = {};
@@ -333,6 +351,9 @@
         let currentUser = null;
         let sessionTimeout = null;
         let tokenRefreshInterval = null;
+
+        console.log('🌐 API Base URL:', API_BASE_URL);
+        console.log('🔗 Dashboard API Prefix: /dashboard');
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -399,10 +420,11 @@
             }
         }
 
+        // 🔧 수정: Dashboard API 경로 사용
         async function login(username, password) {
             try {
-                console.log('🔐 서버 로그인 요청:', username);
-                const response = await fetch(API_BASE_URL + '/auth/login', {
+                console.log('🔐 대시보드 서버 로그인 요청:', username);
+                const response = await fetch(API_BASE_URL + '/dashboard/auth/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -410,17 +432,18 @@
                     body: JSON.stringify({
                         username: username,
                         password: password
-                    })
+                    }),
+                    signal: AbortSignal.timeout(10000)
                 });
 
                 if (!response.ok) {
                     const error = await response.json();
-                    console.error('❌ 서버 로그인 실패:', error);
+                    console.error('❌ 대시보드 로그인 실패:', error);
                     throw new Error(error.detail || '로그인에 실패했습니다');
                 }
 
                 const data = await response.json();
-                console.log('✅ 서버 로그인 성공:', data);
+                console.log('✅ 대시보드 로그인 성공:', data);
                 
                 setAuthToken(data.access_token);
                 currentUser = data.user_info;
@@ -434,37 +457,39 @@
                 
                 return true;
             } catch (error) {
-                console.error('❌ 로그인 실패:', error);
+                console.error('❌ 대시보드 로그인 실패:', error);
                 throw error;
             }
         }
 
+        // 🔧 수정: Dashboard API 경로 사용
         async function refreshToken() {
             try {
-                const response = await makeAuthenticatedRequest(API_BASE_URL + '/auth/refresh', {
+                const response = await makeAuthenticatedRequest(API_BASE_URL + '/dashboard/auth/refresh', {
                     method: 'POST'
                 });
 
                 if (response.ok) {
                     const data = await response.json();
                     setAuthToken(data.access_token);
-                    console.log('🔄 토큰 갱신 성공');
+                    console.log('🔄 대시보드 토큰 갱신 성공');
                 }
             } catch (error) {
-                console.warn('⚠️ 토큰 갱신 실패:', error);
+                console.warn('⚠️ 대시보드 토큰 갱신 실패:', error);
                 await logout();
             }
         }
 
+        // 🔧 수정: Dashboard API 경로 사용
         async function logout() {
             try {
                 if (authToken) {
-                    await makeAuthenticatedRequest(API_BASE_URL + '/auth/logout', {
+                    await makeAuthenticatedRequest(API_BASE_URL + '/dashboard/auth/logout', {
                         method: 'POST'
                     });
                 }
             } catch (error) {
-                console.warn('로그아웃 요청 실패:', error);
+                console.warn('대시보드 로그아웃 요청 실패:', error);
             } finally {
                 clearAuthToken();
                 currentUser = null;
@@ -490,9 +515,10 @@
             }
         }
 
+        // 🔧 수정: Dashboard API 경로 사용
         async function getCurrentUser() {
             try {
-                const response = await makeAuthenticatedRequest(API_BASE_URL + '/auth/me');
+                const response = await makeAuthenticatedRequest(API_BASE_URL + '/dashboard/auth/me');
                 if (response.ok) {
                     const userData = await response.json();
                     currentUser = userData;
@@ -602,82 +628,114 @@
         }
 
         function showError(message, container) {
-            const el = document.getElementById(container || 'feedbackList');
+            console.error('❌ 에러 표시:', message);
+            
+            const containerId = container || 'feedbackList';
+            const el = document.getElementById(containerId);
+            
             if (el) {
-                el.innerHTML = '<div class="error">' + escapeHtml(message) + '</div>';
+                const timestamp = new Date().toLocaleTimeString('ko-KR');
+                el.innerHTML = 
+                    '<div class="error">' + 
+                        '<i class="fas fa-exclamation-triangle"></i> ' +
+                        escapeHtml(message) + 
+                        '<br><small>시간: ' + timestamp + '</small>' +
+                        '<br><small>페이지를 새로고침하거나 잠시 후 다시 시도해주세요.</small>' +
+                    '</div>';
+            } else {
+                console.warn('⚠️ 에러 표시 컨테이너 없음:', containerId);
+                
+                if (typeof window !== 'undefined' && window.alert) {
+                    alert('오류: ' + message);
+                }
             }
         }
 
+        // 🔧 수정: Dashboard API 경로 사용
         async function testApiConnection() {
-            console.log('🔍 API 연결 테스트 중...');
+            console.log('🔍 대시보드 API 연결 테스트:', API_BASE_URL + '/dashboard');
             updateConnectionStatus(false, 'API 연결 확인 중...');
 
             try {
-                const response = await fetch(API_BASE_URL + '/health', {
+                // 🔧 수정: 대시보드 헬스체크 사용
+                const healthResponse = await fetch(API_BASE_URL + '/dashboard/health', {
                     signal: AbortSignal.timeout(5000)
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ 공개 API 연결 성공:', data);
-                    
-                    if (isAuthenticated()) {
-                        try {
-                            const authResponse = await makeAuthenticatedRequest(API_BASE_URL + '/dashboard/health');
-                            if (authResponse.ok) {
-                                const authData = await authResponse.json();
-                                console.log('✅ 인증된 API 연결 성공:', authData);
-                                updateConnectionStatus(true, `${data.service} (인증됨)`);
-                                return true;
-                            }
-                        } catch (authError) {
-                            console.warn('⚠️ 인증된 API 연결 실패:', authError);
+                if (!healthResponse.ok) {
+                    throw new Error(`대시보드 헬스체크 실패: ${healthResponse.status}`);
+                }
+
+                const healthData = await healthResponse.json();
+                console.log('✅ 대시보드 API 연결 성공:', healthData);
+                
+                if (isAuthenticated()) {
+                    try {
+                        // 🔧 수정: 대시보드 통계 API 사용
+                        const statsResponse = await makeAuthenticatedRequest(API_BASE_URL + '/dashboard/api/stats?days=1&include_today=true', {
+                            timeout: 5000
+                        });
+                        
+                        if (statsResponse.ok) {
+                            const statsData = await statsResponse.json();
+                            console.log('✅ 인증된 대시보드 API 연결 성공:', statsData);
+                            updateConnectionStatus(true, `${healthData.service} (대시보드 인증됨)`);
+                            return true;
+                        } else {
+                            console.warn('⚠️ 인증된 대시보드 API 연결 실패:', statsResponse.status);
+                        }
+                    } catch (authError) {
+                        console.warn('⚠️ 인증된 대시보드 API 테스트 실패:', authError.message);
+                        if (authError.message.includes('Authentication failed')) {
+                            await logout();
+                            return false;
                         }
                     }
-                    
-                    updateConnectionStatus(true, data.service || 'Server');
-                    return true;
                 }
+                
+                updateConnectionStatus(true, healthData.service || 'Dashboard Server');
+                return true;
+                
             } catch (error) {
-                console.error('❌ API 연결 실패:', error);
+                console.error('❌ 대시보드 API 연결 실패:', error);
+                updateConnectionStatus(false, `대시보드 연결 실패: ${error.message}`);
+                return false;
             }
-
-            updateConnectionStatus(false, 'API 서버 미응답');
-            return false;
         }
 
-        // 🔧 핵심 수정: 백엔드 API와 일치하도록 데이터 요청 구조 개선
+        // 🔧 수정: Dashboard API 경로 사용
         async function fetchConversations(days, limit) {
             days = Math.max(1, Math.min(parseInt(days) || 7, 365));
             limit = Math.max(1, Math.min(parseInt(limit) || 50, 1000));
             
             try {
-                console.log('💬 Q&A 데이터 요청 (백엔드 통일 계산):', { days, limit });
+                console.log('💬 대시보드 Q&A 데이터 요청:', {
+                    requestedDays: days,
+                    limit: limit,
+                    include_today: true
+                });
                 
-                const url = `${API_BASE_URL}/api/qa/conversations?days=${days}&limit=${limit}`;
+                // 🔧 수정: 대시보드 Q&A API 사용
+                const url = `${API_BASE_URL}/dashboard/api/qa/conversations?days=${days}&include_today=true&limit=${limit}`;
                 const response = await makeAuthenticatedRequest(url);
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('✅ Q&A 데이터 수신:', {
+                    console.log('✅ 대시보드 Q&A 데이터 수신:', {
                         conversations: data.conversations?.length || 0,
                         total: data.total || 0,
-                        stats: data.stats
+                        stats: data.stats,
+                        debug_info: data.debug_info
                     });
                     return data;
+                } else {
+                    console.error('❌ 대시보드 Q&A API 응답 오류:', response.status, response.statusText);
+                    throw new Error(`대시보드 API 응답 오류: ${response.status}`);
                 }
             } catch (error) {
-                console.warn('⚠️ Q&A 요청 실패:', error.message);
+                console.warn('⚠️ 대시보드 Q&A 요청 실패:', error.message);
+                throw error;
             }
-
-            return {
-                conversations: [],
-                total: 0,
-                stats: {
-                    unique_sessions: 0,
-                    match_distribution: { good: 0, bad: 0, improve: 0, none: 0 }
-                }
-            };
         }
 
         function extractFeedbackType(feedback) {
@@ -686,7 +744,6 @@
                 return 'unknown';
             }
 
-            // 🔧 백엔드에서 추출된 타입 우선 사용
             if (feedback.extracted_type === 'positive' || feedback.extracted_type === 'negative') {
                 return feedback.extracted_type;
             }
@@ -733,7 +790,7 @@
             }
         }
 
-        // 🔧 핵심 수정: 백엔드 통합 API 사용
+        // 🔧 수정: Dashboard API 경로 사용
         async function refreshData() {
             if (!isAuthenticated()) {
                 logout();
@@ -741,25 +798,27 @@
             }
 
             const days = parseInt(document.getElementById('daysSelect').value);
+            const limit = parseInt(document.getElementById('limitSelect').value);
             
             updateDateCalculationInfo(days, 'feedback');
             
             try {
                 document.getElementById('feedbackList').innerHTML = '<div class="loading">데이터를 불러오는 중...</div>';
                 
-                console.log('🔄 대시보드 통합 데이터 요청:', { days });
+                console.log('🔄 대시보드 데이터 새로고침:', { days, limit });
                 
-                // 🔧 수정: dashboard_routes.py의 통합 API 사용
-                const response = await makeAuthenticatedRequest(
-                    `${API_BASE_URL}/api/dashboard/data?days=${days}`
-                );
+                // 🔧 수정: 대시보드 데이터 API 사용
+                const url = `${API_BASE_URL}/dashboard/api/dashboard/data?days=${days}&include_today=true&feedback_limit=${limit}&qa_limit=${limit}`;
+                const response = await makeAuthenticatedRequest(url);
                 
                 if (response.ok) {
                     const data = await response.json();
                     
-                    console.log('✅ 대시보드 통합 데이터 수신:', {
+                    console.log('✅ 대시보드 데이터 수신:', {
                         stats: data.stats,
-                        feedback_total: data.feedback?.total_matched || 0,
+                        feedback_count: data.feedback?.feedback?.length || 0,
+                        feedback_matched: data.feedback?.total_matched || 0,
+                        qa_count: data.conversations?.conversations?.length || 0,
                         qa_total: data.conversations?.total || 0
                     });
                     
@@ -771,11 +830,18 @@
                     updateFeedbackStats(data.stats);
                     updateFeedbackCharts(currentData, days);
                     
-                    // 피드백 목록 표시
-                    await loadFeedback(currentFeedbackFilter);
+                    allFeedbackData = data.feedback?.feedback || [];
+                    displayFeedback(allFeedbackData.filter(feedback => {
+                        if (currentFeedbackFilter === 'all') return true;
+                        return extractFeedbackType(feedback) === currentFeedbackFilter;
+                    }));
+                    
+                } else {
+                    console.error('❌ 대시보드 API 오류:', response.status);
+                    throw new Error(`대시보드 API 오류: ${response.status}`);
                 }
             } catch (error) {
-                console.error('데이터 새로고침 실패:', error);
+                console.error('❌ 데이터 새로고침 실패:', error);
                 showError('데이터를 불러오는 중 오류가 발생했습니다: ' + error.message);
             }
         }
@@ -785,8 +851,22 @@
             const infoElement = document.getElementById(infoId);
             
             if (infoElement) {
-                const today = new Date().toLocaleDateString('ko-KR');
-                infoElement.innerHTML = `🔧 날짜 계산: 백엔드에서 ${days}일간 통일 계산 (오늘: ${today} 포함)`;
+                const today = new Date();
+                const startDate = new Date(today);
+                startDate.setDate(startDate.getDate() - (days - 1));
+                
+                const todayStr = today.toLocaleDateString('ko-KR');
+                const startStr = startDate.toLocaleDateString('ko-KR');
+                
+                infoElement.innerHTML = 
+                    `🔧 날짜 계산: 대시보드 백엔드에서 ${days}일간 통일 계산<br>` +
+                    `📅 범위: ${startStr} ~ ${todayStr} (오늘 포함, include_today=true)`;
+            }
+
+            // API 경로 정보 업데이트
+            const apiPathInfo = document.getElementById('apiPathInfo');
+            if (apiPathInfo) {
+                apiPathInfo.innerHTML = `🔗 사용 중인 API: /dashboard/api/* (백엔드 라우터 prefix 적용됨)`;
             }
         }
 
@@ -801,31 +881,46 @@
             updateDateCalculationInfo(days, 'conversation');
             
             try {
-                console.log('🔄 Q&A 데이터 새로고침 시작:', { days });
+                console.log('🔄 대시보드 Q&A 데이터 새로고침:', { days });
                 
-                const data = await fetchConversations(days, 100);
-                currentData = data;
+                const data = await fetchConversations(days, 200);
                 
-                console.log('📊 Q&A 새로고침 완료:', {
+                console.log('📊 대시보드 Q&A 새로고침 완료:', {
                     conversations: data.conversations?.length || 0,
                     total: data.total || 0,
-                    stats: data.stats
+                    stats: data.stats,
+                    debug_info: data.debug_info
                 });
+                
+                if (data.debug_info?.filtering_results?.daily_distribution) {
+                    console.log('🔍 백엔드 일별 분포:', data.debug_info.filtering_results.daily_distribution);
+                }
+                
+                currentData = data;
                 
                 updateConversationStats(data);
                 updateConversationCharts(data);
+                
             } catch (error) {
-                console.error('Q&A 데이터 새로고침 실패:', error);
+                console.error('❌ 대시보드 Q&A 데이터 새로고침 실패:', error);
                 showError('Q&A 데이터를 불러오는 중 오류가 발생했습니다: ' + error.message);
+                
+                currentData = {
+                    conversations: [],
+                    total: 0,
+                    stats: { unique_sessions: 0, match_distribution: { good: 0, bad: 0, improve: 0, none: 0 } }
+                };
+                updateConversationStats(currentData);
+                updateConversationCharts(currentData);
             }
         }
 
         function calculateResponseRate(feedbackCount, qaCount) {
             if (qaCount === 0) return 0;
-            return Math.round((feedbackCount / qaCount) * 100);
+            return Math.min(100, Math.round((feedbackCount / qaCount) * 100));
         }
 
-        // 🔧 핵심 수정: 백엔드 매칭된 피드백 데이터 사용
+        // 🔧 수정: Dashboard API 경로 사용
         async function loadFeedback(type) {
             if (!isAuthenticated()) {
                 logout();
@@ -836,7 +931,8 @@
             currentFeedbackFilter = type;
             
             document.querySelectorAll('.data-filters button').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(type === 'all' ? 'allBtn' : type + 'Btn').classList.add('active');
+            const targetBtn = document.getElementById(type === 'all' ? 'allBtn' : type + 'Btn');
+            if (targetBtn) targetBtn.classList.add('active');
 
             document.getElementById('feedbackList').innerHTML = '<div class="loading">피드백 데이터를 불러오는 중...</div>';
 
@@ -844,24 +940,23 @@
             const days = parseInt(document.getElementById('daysSelect').value);
             
             try {
-                console.log('📝 매칭된 피드백 데이터 요청:', { type, limit, days });
+                console.log('📋 대시보드 피드백 로드:', { type, limit, days });
                 
-                // 🔧 수정: 백엔드 통합 API에서 매칭된 피드백 가져오기
-                const response = await makeAuthenticatedRequest(
-                    `${API_BASE_URL}/api/dashboard/data?days=${days}&feedback_limit=${limit}`
-                );
+                // 🔧 수정: 대시보드 데이터 API 사용
+                const url = `${API_BASE_URL}/dashboard/api/dashboard/data?days=${days}&include_today=true&feedback_limit=${limit}`;
+                const response = await makeAuthenticatedRequest(url);
                 
                 if (response.ok) {
                     const data = await response.json();
                     const feedbackData = data.feedback?.feedback || [];
                     
-                    console.log('📊 매칭된 피드백 데이터 수신:', {
-                        count: feedbackData.length,
-                        total_matched: data.feedback?.total_matched || 0,
-                        total_unmatched: data.feedback?.total_unmatched || 0
+                    console.log('📊 대시보드 피드백 데이터 수신:', {
+                        total_feedback: feedbackData.length,
+                        matched: data.feedback?.total_matched || 0,
+                        unmatched: data.feedback?.total_unmatched || 0,
+                        match_strategy: data.matching_summary?.strategy || 'unknown'
                     });
                     
-                    // 타입 필터링 (클라이언트 사이드)
                     let filteredFeedback = feedbackData;
                     if (type !== 'all') {
                         filteredFeedback = feedbackData.filter(feedback => {
@@ -870,21 +965,33 @@
                         });
                     }
                     
+                    console.log('🔍 필터링 결과:', {
+                        filter: type,
+                        original: feedbackData.length,
+                        filtered: filteredFeedback.length
+                    });
+                    
                     allFeedbackData = filteredFeedback;
                     displayFeedback(filteredFeedback);
+                    
+                } else {
+                    console.error('❌ 대시보드 피드백 API 오류:', response.status);
+                    throw new Error(`대시보드 피드백 API 오류: ${response.status}`);
                 }
             } catch (error) {
-                console.error('피드백 로드 실패:', error);
+                console.error('❌ 대시보드 피드백 로드 실패:', error);
                 showError('피드백 데이터를 불러오는 중 오류가 발생했습니다: ' + error.message);
             }
         }
         
-        // 🔧 수정: Q&A 매칭 정보 표시 개선
         function displayFeedback(feedbackList) {
             const container = document.getElementById('feedbackList');
             const countElement = document.getElementById('feedbackCount');
             
-            if (!container || !countElement) return;
+            if (!container || !countElement) {
+                console.warn('⚠️ 피드백 표시 요소 없음');
+                return;
+            }
 
             console.log('🖥️ 피드백 표시:', {
                 count: feedbackList.length,
@@ -896,7 +1003,8 @@
             if (feedbackList.length === 0) {
                 container.innerHTML = '<div class="error">' + 
                     escapeHtml('표시할 피드백이 없습니다.') + 
-                    '<br><small>필터: ' + escapeHtml(currentFeedbackFilter) + '</small></div>';
+                    '<br><small>필터: ' + escapeHtml(currentFeedbackFilter) + '</small>' +
+                    '<br><small>대시보드 서버에서 매칭된 데이터를 기반으로 표시됩니다.</small></div>';
                 return;
             }
             
@@ -912,42 +1020,52 @@
                         : 'unknown'
                 };
 
-                const date = new Date(feedback.timestamp).toLocaleDateString('ko-KR', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
+                let date = '날짜 없음';
+                try {
+                    if (feedback.timestamp) {
+                        date = new Date(feedback.timestamp).toLocaleDateString('ko-KR', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    }
+                } catch (e) {
+                    console.warn('날짜 파싱 오류:', feedback.timestamp);
+                }
                 
                 const extractedType = extractFeedbackType(feedback);
                 const typeClass = extractedType === 'positive' ? 'positive' : 'negative';
                 const typeText = extractedType === 'positive' ? '👍 도움됨' : '👎 아쉬움';
                 
-                // 🔧 백엔드 매칭 상태 표시
                 let qaStatus = '';
                 if (feedback.qa_info && feedback.qa_info.id) {
-                    qaStatus = '<span style="color: #28a745; font-weight: 600;">🎯 Q&A 매칭됨</span>';
+                    qaStatus = '<span style="color: #28a745; font-weight: 600;">🎯 Q&A 매칭됨 (대시보드)</span>';
+                } else if (feedback.matched_qa_id) {
+                    qaStatus = '<span style="color: #ffc107; font-weight: 600;">🔗 ID 매칭됨</span>';
                 } else {
                     qaStatus = '<span style="color: #dc3545;">○ Q&A 미매칭</span>';
                 }
+                
+                const isLongAnswer = safeData.answer.length > 200;
+                const shouldCollapse = index >= 5;
                 
                 return '<div class="data-item ' + typeClass + '">' +
                     '<div class="data-meta">' +
                         '<div style="display: flex; align-items: center; gap: 10px;">' +
                             '<span class="data-type ' + typeClass + '">' + typeText + '</span>' +
-                            qaStatus +
                         '</div>' +
                         '<span>' + escapeHtml(date) + '</span>' +
                     '</div>' +
                     '<div class="data-content">' +
                         '<div class="question">❓ ' + safeData.question + '</div>' +
-                        '<div class="answer ' + (index < 5 ? '' : 'collapsed') + '" id="answer_' + index + '">' +
+                        '<div class="answer ' + (isLongAnswer && shouldCollapse ? 'collapsed' : '') + '" id="answer_' + index + '">' +
                             safeData.answer +
                         '</div>' +
-                        (safeData.answer.length > 200 ? 
+                        (isLongAnswer ? 
                             '<button class="expand-toggle" onclick="toggleAnswer(' + index + ')">' +
-                                '<span id="toggle_text_' + index + '">' + (index < 5 ? '접기' : '더보기') + '</span>' +
+                                '<span id="toggle_text_' + index + '">' + (shouldCollapse ? '더보기' : '접기') + '</span>' +
                             '</button>' : ''
                         ) +
                     '</div>' +
@@ -955,7 +1073,8 @@
                         '💬 Chat ID: ' + safeData.chat_id + ' | ' +
                         '🆔 QA ID: ' + safeData.qa_id + ' | ' +
                         '📝 피드백 ID: ' + safeData.feedback_id + ' | ' +
-                        '🌐 IP: ' + safeData.client_ip +
+                        '🌐 IP: ' + safeData.client_ip + ' | ' +
+                        qaStatus +
                     '</div>' +
                 '</div>';
             });
@@ -964,51 +1083,81 @@
         }
 
         function updateFeedbackStats(stats) {
-            console.log('🔧 통계 업데이트:', stats);
+            console.log('📊 통계 업데이트:', stats);
+            
+            const safeStats = {
+                total_feedback: stats.total_feedback || 0,
+                positive: stats.positive || 0,
+                negative: stats.negative || 0,
+                unique_users: stats.unique_users || 0,
+                satisfaction_rate: stats.satisfaction_rate || 0,
+                total_qa: stats.total_qa || 0,
+                unique_sessions: stats.unique_sessions || 0,
+                unique_qa_users: stats.unique_qa_users || 0
+            };
+            
+            const responseRate = calculateResponseRate(safeStats.total_feedback, safeStats.total_qa);
+            const participationRate = safeStats.unique_users > 0 
+                ? (safeStats.total_feedback / safeStats.unique_users).toFixed(2)
+                : '0.00';
             
             const elements = {
-                totalFeedback: stats.total_feedback || 0,
-                positiveFeedback: stats.positive || 0,
-                negativeFeedback: stats.negative || 0,
-                uniqueUsers: stats.unique_users || 0,
-                satisfactionRate: (stats.satisfaction_rate || 0) + '%',
-                totalQA: stats.total_qa || 0,
-                responseRate: calculateResponseRate(stats.total_feedback || 0, stats.total_qa || 0) + '%'
+                totalFeedback: safeStats.total_feedback,
+                positiveFeedback: safeStats.positive,
+                negativeFeedback: safeStats.negative,
+                uniqueUsers: safeStats.unique_users,
+                satisfactionRate: safeStats.satisfaction_rate + '%',
+                totalQA: safeStats.total_qa,
+                responseRate: responseRate + '%',
+                participationRate: participationRate + '회'
             };
+
+            console.log('🔧 UI 업데이트 값들:', elements);
 
             Object.entries(elements).forEach(([id, value]) => {
                 const element = document.getElementById(id);
                 if (element) {
                     element.textContent = value;
+                } else {
+                    console.warn(`⚠️ 요소 없음: ${id}`);
                 }
             });
             
-            const participationRate = stats.unique_users > 0 
-                ? (stats.total_feedback / stats.unique_users).toFixed(2)
-                : '0.00';
-            
-            const participationElement = document.getElementById('participationRate');
-            if (participationElement) {
-                participationElement.textContent = participationRate + '회';
+            if (stats.date_range_info) {
+                updateDateRangeDisplay(stats.date_range_info);
             }
         }
 
         function updateConversationStats(conversationData) {
+            console.log('💬 Q&A 통계 업데이트:', conversationData);
+            
             const stats = conversationData.stats || {};
             const matchDistribution = stats.match_distribution || {};
             
-            const elements = {
-                totalConversations: stats.unique_sessions || 0,
-                matchGood: matchDistribution.good || 0,
-                matchBad: matchDistribution.bad || 0,
-                matchImprove: matchDistribution.improve || 0,
-                matchNone: matchDistribution.none || 0
+            const safeStats = {
+                unique_sessions: stats.unique_sessions || 0,
+                good: matchDistribution.good || 0,
+                bad: matchDistribution.bad || 0,
+                improve: matchDistribution.improve || 0,
+                none: matchDistribution.none || 0
             };
+            
+            const elements = {
+                totalConversations: safeStats.unique_sessions,
+                matchGood: safeStats.good,
+                matchBad: safeStats.bad,
+                matchImprove: safeStats.improve,
+                matchNone: safeStats.none
+            };
+
+            console.log('💬 Q&A UI 업데이트 값들:', elements);
 
             Object.entries(elements).forEach(([id, value]) => {
                 const element = document.getElementById(id);
                 if (element) {
                     element.textContent = value;
+                } else {
+                    console.warn(`⚠️ Q&A 요소 없음: ${id}`);
                 }
             });
         }
@@ -1115,8 +1264,17 @@
                 return;
             }
 
+            console.log('💬 Q&A 차트 업데이트 시작:', conversationData);
+            
             const conversations = conversationData.conversations || [];
             const stats = conversationData.stats || {};
+            
+            const backendDailyDistribution = conversationData.debug_info?.filtering_results?.daily_distribution;
+            
+            console.log('💬 차트용 데이터:', {
+                total_conversations: conversations.length,
+                backend_daily_distribution: backendDailyDistribution
+            });
             
             if (charts.matchStatusChart) charts.matchStatusChart.destroy();
             
@@ -1158,8 +1316,33 @@
             
             const timeCtx = document.getElementById('qaTimeChart').getContext('2d');
             const days = parseInt(document.getElementById('conversationDaysSelect').value);
-            const dailyData = generateDailyQAData(conversations, days);
-            const labels = generateTimeLabels(days);
+            
+            let dailyData, labels;
+            
+            if (backendDailyDistribution && Object.keys(backendDailyDistribution).length > 0) {
+                console.log('✅ 백엔드 일별 분포 사용:', backendDailyDistribution);
+                
+                const result = generateLabelsAndDataFromBackend(backendDailyDistribution, days);
+                labels = result.labels;
+                dailyData = result.data;
+                
+                console.log('📊 백엔드 키 기반 차트 데이터:', {
+                    labels: labels,
+                    data: dailyData,
+                    data_sum: dailyData.reduce((a, b) => a + b, 0)
+                });
+            } else {
+                console.log('⚠️ 백엔드 데이터 없음, 프론트엔드 처리 사용');
+                
+                dailyData = generateDailyQAData(conversations, days);
+                labels = generateTimeLabels(days);
+                
+                console.log('📊 프론트엔드 기반 차트 데이터:', {
+                    labels: labels,
+                    data: dailyData,
+                    data_sum: dailyData.reduce((a, b) => a + b, 0)
+                });
+            }
             
             charts.qaTimeChart = new Chart(timeCtx, {
                 type: 'bar',
@@ -1185,40 +1368,147 @@
         function generateTimeLabels(days) {
             const labels = [];
             const today = new Date();
+            today.setHours(0, 0, 0, 0);
             
-            for (let i = days - 1; i >= 0; i--) {
-                const date = new Date(today);
-                date.setDate(date.getDate() - i);
+            console.log('🏷️ 차트 레이블 생성:', { days, today: today.toISOString().split('T')[0] });
+            
+            for (let i = 0; i < days; i++) {
+                const targetDate = new Date(today);
+                targetDate.setDate(targetDate.getDate() - (days - 1 - i));
                 
+                const dateStr = targetDate.toISOString().split('T')[0];
+                const [year, month, day] = dateStr.split('-').map(Number);
+                
+                let label;
                 if (days <= 7) {
-                    labels.push(date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }));
+                    label = `${month}월 ${day}일`;
                 } else {
-                    labels.push(date.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }));
+                    label = `${month}/${day}`;
                 }
+                
+                labels.push(label);
+                
+                console.log(`  레이블 ${i}: ${dateStr} -> ${label} (ISO에서 추출: 월=${month}, 일=${day})`);
             }
+            
+            console.log('🏷️ 생성된 레이블:', labels);
             
             return labels;
         }
 
-        function generateDailyQAData(conversations, days) {
-            const today = new Date();
-            const dailyData = new Array(days).fill(0);
+        function generateLabelsAndDataFromBackend(backendDailyDistribution, days) {
+            console.log('🔧 백엔드 키 기반 레이블/데이터 생성:', { days, backendData: backendDailyDistribution });
             
-            conversations.forEach(conv => {
+            const dateKeys = Object.keys(backendDailyDistribution).sort();
+            console.log('🔧 정렬된 백엔드 날짜 키들:', dateKeys);
+            
+            const labels = [];
+            const data = [];
+            
+            dateKeys.forEach((dateKey, index) => {
+                const [year, month, day] = dateKey.split('-').map(Number);
+                
+                let label;
+                if (days <= 7) {
+                    label = `${month}월 ${day}일`;
+                } else {
+                    label = `${month}/${day}`;
+                }
+                
+                const dayData = backendDailyDistribution[dateKey];
+                const count = dayData ? (dayData.count || dayData) : 0;
+                
+                labels.push(label);
+                data.push(typeof count === 'number' ? count : 0);
+                
+                console.log(`  키 ${index}: ${dateKey} -> ${label} (${data[index]}개)`);
+            });
+            
+            console.log('🔧 백엔드 키 기반 결과:');
+            console.log('  - 레이블:', labels);
+            console.log('  - 데이터:', data);
+            console.log('  - 총합:', data.reduce((a, b) => a + b, 0));
+            
+            return { labels, data };
+        }
+
+        function generateDailyQAData(conversations, days) {
+            console.log('📊 Q&A 일별 데이터 생성:', { conversations: conversations.length, days });
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const dailyData = new Array(days).fill(0);
+            const dailyDetails = {};
+            
+            conversations.forEach((conv, index) => {
                 if (conv.timestamp) {
                     try {
                         const convDate = new Date(conv.timestamp);
-                        const daysDiff = Math.floor((today - convDate) / (24 * 60 * 60 * 1000));
+                        
+                        const convDateStr = convDate.toISOString().split('T')[0];
+                        const todayStr = today.toISOString().split('T')[0];
+                        
+                        const convDateObj = new Date(convDateStr + 'T00:00:00.000Z');
+                        const todayObj = new Date(todayStr + 'T00:00:00.000Z');
+                        
+                        const timeDiff = todayObj - convDateObj;
+                        const daysDiff = Math.floor(timeDiff / (24 * 60 * 60 * 1000));
+                        
                         const dayIndex = days - 1 - daysDiff;
+                        
+                        if (index < 5) {
+                            console.log(`[SAMPLE ${index}] 대화:`, {
+                                original_timestamp: conv.timestamp,
+                                conv_date_str: convDateStr,
+                                today_str: todayStr,
+                                days_diff: daysDiff,
+                                day_index: dayIndex
+                            });
+                        }
                         
                         if (dayIndex >= 0 && dayIndex < days) {
                             dailyData[dayIndex]++;
+                            
+                            if (!dailyDetails[convDateStr]) {
+                                dailyDetails[convDateStr] = { count: 0, conversations: [] };
+                            }
+                            dailyDetails[convDateStr].count++;
+                            dailyDetails[convDateStr].conversations.push({
+                                id: conv.id,
+                                question: conv.question?.substring(0, 30) + '...'
+                            });
+                            
+                            if (index < 10) {
+                                console.log(`✅ 날짜 매칭: ${convDateStr} -> 인덱스 ${dayIndex}`);
+                            }
+                        } else {
+                            if (index < 5) {
+                                console.warn(`⚠️ 범위 밖 데이터: dayIndex=${dayIndex}, days=${days}`, {
+                                    timestamp: conv.timestamp,
+                                    daysDiff: daysDiff
+                                });
+                            }
                         }
                     } catch (e) {
-                        console.warn('날짜 파싱 오류:', conv.timestamp);
+                        console.warn('날짜 파싱 오류:', conv.timestamp, e);
+                    }
+                } else {
+                    if (index < 5) {
+                        console.warn('타임스탬프 없음:', conv.id || 'unknown');
                     }
                 }
             });
+            
+            console.log('📊 일별 데이터 생성 완료:');
+            dailyData.forEach((count, index) => {
+                const targetDate = new Date(today);
+                targetDate.setDate(targetDate.getDate() - (days - 1 - index));
+                const dateStr = targetDate.toISOString().split('T')[0];
+                console.log(`  ${dateStr}: ${count}개 (인덱스 ${index})`);
+            });
+            
+            console.log('📊 상세 날짜별 분석:', dailyDetails);
             
             return dailyData;
         }
@@ -1298,21 +1588,54 @@
             });
         }
 
+        function updateDateRangeDisplay(dateRangeInfo) {
+            if (!dateRangeInfo) return;
+            
+            console.log('📅 날짜 범위 정보:', dateRangeInfo);
+            
+            const dateInfoElements = document.querySelectorAll('.date-calculation-info');
+            dateInfoElements.forEach(element => {
+                if (element) {
+                    const startDate = new Date(dateRangeInfo.start).toLocaleDateString('ko-KR');
+                    const endDate = new Date(dateRangeInfo.end).toLocaleDateString('ko-KR');
+                    
+                    element.innerHTML = 
+                        `🔧 날짜 계산: ${dateRangeInfo.description}<br>` +
+                        `📅 실제 범위: ${startDate} ~ ${endDate} (${dateRangeInfo.days}일간)`;
+                }
+            });
+        }
+
         async function initializeDashboard() {
             if (!isAuthenticated()) {
-                logout();
+                console.warn('⚠️ 인증되지 않은 상태에서 대시보드 초기화 시도');
+                await logout();
                 return;
             }
 
-            console.log('🚀 대시보드 초기화 시작');
+            console.log('🚀 대시보드 초기화 시작 (Dashboard API 버전)');
             
-            const isConnected = await testApiConnection();
-            
-            if (isConnected) {
-                await refreshData();
-            } else {
-                console.warn('⚠️ API 연결 실패 - 오프라인 모드');
-                showError('API 서버에 연결할 수 없습니다. 서버 상태를 확인해주세요.');
+            try {
+                const isConnected = await testApiConnection();
+                
+                if (isConnected) {
+                    console.log('✅ 대시보드 API 연결 성공, 데이터 로드 중...');
+                    
+                    await Promise.all([
+                        refreshData().catch(error => {
+                            console.error('❌ 대시보드 피드백 데이터 로드 실패:', error);
+                            showError('피드백 데이터 로드 실패: ' + error.message);
+                        })
+                    ]);
+                    
+                    console.log('🎉 대시보드 초기화 완료');
+                } else {
+                    console.warn('⚠️ 대시보드 API 연결 실패 - 제한된 기능');
+                    showError('대시보드 API 서버에 연결할 수 없습니다. 서버 상태를 확인해주세요.');
+                }
+            } catch (error) {
+                console.error('❌ 대시보드 초기화 실패:', error);
+                showError('대시보드 초기화 중 오류가 발생했습니다: ' + error.message);
             }
         }
 
@@ -1339,18 +1662,18 @@
                         submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 로그인 중...';
                         errorElement.style.display = 'none';
                         
-                        console.log('🔐 로그인 시도:', username);
+                        console.log('🔐 대시보드 로그인 시도:', username);
                         const success = await login(username, password);
                         
                         if (success) {
-                            console.log('✅ 로그인 성공, UI 업데이트 중...');
+                            console.log('✅ 대시보드 로그인 성공, UI 업데이트 중...');
                             updateUserInfo();
                             hideAuthModal();
                             await initializeDashboard();
                             console.log('🎉 대시보드 로드 완료');
                         }
                     } catch (error) {
-                        console.error('❌ 로그인 오류:', error);
+                        console.error('❌ 대시보드 로그인 오류:', error);
                         errorElement.textContent = error.message || '로그인에 실패했습니다.';
                         errorElement.style.display = 'block';
                     } finally {
@@ -1373,6 +1696,7 @@
             });
         });
 
+        // 컨트롤 이벤트 리스너
         document.getElementById('limitSelect').addEventListener('change', function() {
             if (isAuthenticated()) {
                 loadFeedback(currentFeedbackFilter);
@@ -1391,6 +1715,7 @@
             }
         });
 
+        // 키보드 단축키
         document.addEventListener('keydown', function(e) {
             if (!isAuthenticated()) return;
 
@@ -1405,6 +1730,7 @@
             }
         });
 
+        // 정리 함수
         window.addEventListener('beforeunload', function() {
             if (sessionTimeout) {
                 clearTimeout(sessionTimeout);
