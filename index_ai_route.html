@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>투어비스 에이전트 - 1:1 + route2</title>
+<title>투어비스 고객센터 AI 에이전트</title>
 <script src="https://unpkg.com/event-source-polyfill@1.0.20/eventsource.min.js"></script>
 <style>
 * {
@@ -342,6 +342,11 @@ color: #0056b3;
 box-shadow: 0 1px 3px rgba(0,123,255,0.1);
 }
 
+/* 🎯 모바일에서 서버 관련 UI 숨기기 */
+.server-test-btn, .server-success-msg {
+display: block;
+}
+
 /* 🎯 모바일 최적화 */
 @media (max-width: 768px) {
 body {
@@ -443,6 +448,11 @@ display: none;
 -ms-overflow-style: none;
 scrollbar-width: none;
 }
+
+/* 🎯 모바일에서 서버 관련 UI 완전히 숨기기 */
+.server-test-btn, .server-success-msg {
+display: none !important;
+}
 }
 
 /* 🎯 태블릿 최적화 */
@@ -538,7 +548,7 @@ transition-duration: 0.01s !important;
 </head>
 <body>
 <div id="header">
-<h1>🎯 투어비스 고객센터  - 1:1 + route2</h1>
+<h1>🎯 투어비스 고객센터 AI 에이전트</h1>
 </div>
 
 <div id="container">
@@ -594,6 +604,54 @@ questionHash: null     // 질문 해시
 // 🎯 모바일/PC 감지
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
 window.innerWidth <= 768;
+
+// 🎯 개선된 스크롤 함수 - 여러 번 시도하여 확실히 스크롤
+function scrollToBottom(attempts = 0, maxAttempts = 5) {
+if (attempts >= maxAttempts) return;
+
+const currentScrollTop = chat.scrollTop;
+const maxScrollTop = chat.scrollHeight - chat.clientHeight;
+
+// 스크롤을 맨 아래로
+chat.scrollTop = maxScrollTop;
+
+// 스크롤이 제대로 되었는지 확인
+setTimeout(() => {
+if (Math.abs(chat.scrollTop - maxScrollTop) > 5) {
+// 스크롤이 완전히 되지 않았으면 다시 시도
+scrollToBottom(attempts + 1, maxAttempts);
+}
+}, 100);
+}
+
+// 🎯 콘텐츠 변경 감지 후 스크롤 (MutationObserver 사용)
+const setupScrollObserver = () => {
+const observer = new MutationObserver((mutations) => {
+let shouldScroll = false;
+
+mutations.forEach((mutation) => {
+if (mutation.type === 'childList' || mutation.type === 'characterData') {
+shouldScroll = true;
+}
+});
+
+if (shouldScroll) {
+// 콘텐츠가 변경되면 잠시 후 스크롤
+setTimeout(() => scrollToBottom(), 50);
+}
+});
+
+observer.observe(chat, {
+childList: true,
+subtree: true,
+characterData: true
+});
+
+return observer;
+};
+
+// 스크롤 감시자 설정
+const scrollObserver = setupScrollObserver();
 
 // 서버 상태 확인 함수 - 개선된 버전
 async function checkServerStatus() {
@@ -694,7 +752,7 @@ qaSession.chatId = currentChatId;
 console.log("🆔 로컬 Chat ID 생성:", currentChatId);
 }
 
-// 페이지 로드 시 초기화 - 개선된 버전
+// 페이지 로드 시 초기화 - 개선된 버전 (모바일에서 서버 메시지 숨김)
 window.addEventListener('load', async () => {
 console.log("🚀 애플리케이션 초기화 시작");
 
@@ -712,7 +770,18 @@ document.body.appendChild(loadingMsg);
 const isConnected = await checkServerStatus();
 
 if (!isConnected) {
-// 서버 연결 실패 시 오프라인 모드 안내
+// 서버 연결 실패 시 오프라인 모드 안내 (모바일에서는 간단하게)
+if (isMobile) {
+loadingMsg.innerHTML = `
+         <div style="color: #dc3545; font-size: 14px;">
+           <h3>⚠️ 연결 불가</h3>
+           <p>서버에 연결할 수 없습니다.</p>
+           <button onclick="location.reload()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
+             다시 시도
+           </button>
+         </div>
+       `;
+} else {
 loadingMsg.innerHTML = `
          <div style="color: #dc3545;">
            <h3>⚠️ 서버 연결 불가</h3>
@@ -727,14 +796,17 @@ loadingMsg.innerHTML = `
            </button>
          </div>
        `;
+}
 return;
 } else {
 // 연결 성공 시 Chat ID 초기화
 await initChatId();
 loadingMsg.remove();
 
-// 성공 메시지 잠깐 표시
+// 🎯 모바일에서는 성공 메시지 표시하지 않음
+if (!isMobile) {
 const successMsg = document.createElement('div');
+successMsg.className = 'server-success-msg';
 successMsg.style.cssText = `
          position: fixed; top: 20px; right: 20px; background: #28a745; color: white;
          padding: 10px 15px; border-radius: 5px; z-index: 9999;
@@ -742,6 +814,7 @@ successMsg.style.cssText = `
 successMsg.textContent = '✅ 서버 연결 성공';
 document.body.appendChild(successMsg);
 setTimeout(() => successMsg.remove(), 3000);
+}
 }
 });
 
@@ -794,10 +867,10 @@ wrap.appendChild(content);
 wrap.appendChild(time);
 chat.appendChild(wrap);
 
-// 부드럽게 스크롤을 맨 아래로
-setTimeout(() => {
-chat.scrollTop = chat.scrollHeight;
-}, 50);
+// 🎯 개선된 스크롤 - 여러 번 시도
+setTimeout(() => scrollToBottom(), 50);
+setTimeout(() => scrollToBottom(), 150);
+setTimeout(() => scrollToBottom(), 300);
 }
 
 // 🔧 개선된 convertLinks 함수 - 줄바꿈 문제 해결
@@ -887,7 +960,7 @@ send();
 }
 }
 
-// 스트림 응답 처리 함수 분리
+// 스트림 응답 처리 함수 분리 - 스크롤 개선
 async function processStreamResponse(response, botContent, botWrap, timestamp) {
 const reader = response.body.getReader();
 const decoder = new TextDecoder("utf-8");
@@ -900,6 +973,10 @@ while (true) {
 const { done, value } = await reader.read();
 if (done) {
 console.log('✅ 스트림 완료');
+// 🎯 응답 완료 후 확실한 스크롤
+setTimeout(() => scrollToBottom(), 100);
+setTimeout(() => scrollToBottom(), 300);
+setTimeout(() => scrollToBottom(), 500);
 break;
 }
 
@@ -910,6 +987,10 @@ for (const line of lines) {
 const jsonStr = line.replace(/^data:\s*/, "").trim();
 if (jsonStr === "[DONE]") {
 console.log('🏁 응답 완료');
+// 🎯 응답 완료 후 확실한 스크롤
+setTimeout(() => scrollToBottom(), 100);
+setTimeout(() => scrollToBottom(), 300);
+setTimeout(() => scrollToBottom(), 500);
 resetUI();
 return;
 }
@@ -931,19 +1012,21 @@ typoNotice.innerHTML = `💡 "<strong>${parsed.original}</strong>" → "<strong>
 botWrap.insertBefore(typoNotice, timestamp);
 typoNoticeShown = true;
 
-chat.scrollTop = chat.scrollHeight;
+scrollToBottom();
 }
 break;
 
 case 'timeout':
 botContent.className = "bot error";
 botContent.innerHTML = "⏰ 처리 시간이 초과되었습니다.<br>질문을 더 정확하게 입력해 주세요.";
+setTimeout(() => scrollToBottom(), 100);
 resetUI();
 return;
 
 case 'error':
 botContent.className = "bot error";
 botContent.innerHTML = `⚠️ 오류 발생: ${parsed.message}`;
+setTimeout(() => scrollToBottom(), 100);
 resetUI();
 return;
 }
@@ -955,6 +1038,7 @@ const delta = parsed?.choices?.[0]?.delta?.content;
 
 if (parsed?.choices?.[0]?.delta?.type === 'html') {
 botContent.innerHTML += delta;
+scrollToBottom();
 continue;
 }
 
@@ -967,9 +1051,8 @@ isFirstChunk = false;
 fullText += delta;
 botContent.innerHTML = convertLinks(fullText);
 
-if (chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 100) {
-chat.scrollTop = chat.scrollHeight;
-}
+// 🎯 스크롤 조건 개선 - 항상 스크롤
+scrollToBottom();
 }
 } catch (err) {
 console.warn("응답 파싱 실패:", err, jsonStr);
@@ -980,6 +1063,10 @@ console.warn("응답 파싱 실패:", err, jsonStr);
 console.error("스트림 처리 오류:", streamError);
 throw streamError;
 } finally {
+// 🎯 최종 스크롤 보장
+setTimeout(() => scrollToBottom(), 100);
+setTimeout(() => scrollToBottom(), 300);
+setTimeout(() => scrollToBottom(), 500);
 resetUI();
 }
 }
@@ -1024,7 +1111,7 @@ timestamp.textContent = new Date().toLocaleTimeString();
 botWrap.appendChild(botContent);
 botWrap.appendChild(timestamp);
 chat.appendChild(botWrap);
-chat.scrollTop = chat.scrollHeight;
+scrollToBottom();
 
 // 채팅 엔드포인트들을 우선순위에 따라 시도
 const chatEndpoints = [
@@ -1116,6 +1203,7 @@ currentBotContent.innerHTML = `
            </button>
          </div>
        `;
+scrollToBottom();
 }
 
 // 서버 상태 재확인
@@ -1359,8 +1447,10 @@ window.addEventListener('unhandledrejection', (event) => {
 reportError(new Error(event.reason), 'Unhandled Promise Rejection');
 });
 
-// 서버 연결 테스트 버튼 추가
+// 🎯 서버 연결 테스트 버튼 추가 (모바일에서는 숨김)
+if (!isMobile) {
 const testDiv = document.createElement('div');
+testDiv.className = 'server-test-btn';
 testDiv.style.position = 'fixed';
 testDiv.style.bottom = '10px';
 testDiv.style.right = '10px';
@@ -1371,6 +1461,7 @@ testDiv.innerHTML = `
      </button>
    `;
 document.body.appendChild(testDiv);
+}
 
 // 🎯 초기화 및 디버깅
 console.log('🖥️ 플랫폼 감지:', isMobile ? 'Mobile' : 'Desktop');
@@ -1395,7 +1486,7 @@ const currentHeight = window.innerHeight;
 if (currentHeight < keyboardHeight - 100) {
 // 키보드가 올라온 상태
 setTimeout(() => {
-chat.scrollTop = chat.scrollHeight;
+scrollToBottom();
 }, 100);
 }
 keyboardHeight = currentHeight;
