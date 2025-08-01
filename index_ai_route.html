@@ -592,14 +592,9 @@ transition-duration: 0.01s !important;
     
     console.log('🛡️ URL 보호 시스템 활성화');
 })();
-       
-       // 🎯 API 엔드포인트 구성 - 수정된 버전
-// 포트 번호 제거하고 여러 URL 시도하도록 변경
-const API_URLS = [
-"https://tourvis-ai-dxojr.run.goorm.site",     // 기본 HTTPS (포트 제거)
-];
 
-let API_BASE_URL = API_URLS[0]; // 기본값
+// ✅ 수정된 API 엔드포인트 구성
+const API_BASE_URL = "https://tourvis-ai-dxojr.run.goorm.site";
 
 const CHAT_ENDPOINT = "/api/chat"; 
 const FEEDBACK_ENDPOINT = "/api/feedback/simple"; 
@@ -681,14 +676,12 @@ return observer;
 // 스크롤 감시자 설정
 const scrollObserver = setupScrollObserver();
 
-// 서버 상태 확인 함수 - 개선된 버전
+// ✅ 수정된 서버 상태 확인 함수
 async function checkServerStatus() {
 console.log("🔍 서버 연결 상태 확인 중...");
 
-// 여러 URL을 순차적으로 시도
-for (const baseUrl of API_URLS) {
 try {
-console.log(`🔍 시도 중: ${baseUrl}`);
+console.log(`🔍 시도 중: ${API_BASE_URL}`);
 
 // 짧은 타임아웃으로 빠른 확인
 const controller = new AbortController();
@@ -699,7 +692,7 @@ const healthEndpoints = ["/api/admin/health", "/health", "/"];
 
 for (const endpoint of healthEndpoints) {
 try {
-const response = await fetch(`${baseUrl}${endpoint}`, {
+const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 method: 'GET',
 signal: controller.signal,
 headers: {
@@ -711,13 +704,12 @@ headers: {
 clearTimeout(timeoutId);
 
 if (response.ok) {
-console.log(`✅ 서버 연결 성공: ${baseUrl}${endpoint}`);
-API_BASE_URL = baseUrl;
+console.log(`✅ 서버 연결 성공: ${API_BASE_URL}${endpoint}`);
 serverReachable = true;
 return true;
 }
 } catch (endpointError) {
-console.log(`❌ ${baseUrl}${endpoint} 실패:`, endpointError.message);
+console.log(`❌ ${API_BASE_URL}${endpoint} 실패:`, endpointError.message);
 continue;
 }
 }
@@ -725,12 +717,10 @@ continue;
 clearTimeout(timeoutId);
 
 } catch (error) {
-console.log(`❌ ${baseUrl} 연결 실패:`, error.message);
-continue;
-}
+console.log(`❌ ${API_BASE_URL} 연결 실패:`, error.message);
 }
 
-console.error("❌ 모든 서버 URL 연결 실패");
+console.error("❌ 서버 연결 실패");
 serverReachable = false;
 return false;
 }
@@ -1292,7 +1282,7 @@ continue;
 alert('피드백 전송에 실패했습니다. 나중에 다시 시도해주세요.');
 };
 
-// 🎯 연결 진단 및 문제 해결 가이드
+// ✅ 수정된 연결 진단 및 문제 해결 가이드
 window.diagnoseProblem = async function() {
 const results = [];
 
@@ -1306,18 +1296,15 @@ results.push('✅ 인터넷 연결: 정상');
 results.push('❌ 인터넷 연결: 실패');
 }
 
-// 2. 각 서버 URL 테스트
-for (let i = 0; i < API_URLS.length; i++) {
-const url = API_URLS[i];
+// 2. 단일 서버 URL 테스트
 try {
-const response = await fetch(`${url}/health`, { 
+const response = await fetch(`${API_BASE_URL}/health`, { 
 method: 'GET',
 signal: AbortSignal.timeout(5000)
 });
-results.push(`✅ 서버 ${i+1} (${url}): ${response.status}`);
+results.push(`✅ 서버 (${API_BASE_URL}): ${response.status}`);
 } catch (error) {
-results.push(`❌ 서버 ${i+1} (${url}): ${error.message}`);
-}
+results.push(`❌ 서버 (${API_BASE_URL}): ${error.message}`);
 }
 
 // 3. 브라우저 보안 정책 확인
@@ -1362,7 +1349,7 @@ diagDiv.innerHTML = `
 document.body.appendChild(diagDiv);
 };
 
-// 🎯 개선된 서버 연결 테스트
+// ✅ 수정된 서버 연결 테스트
 window.testServerConnection = async function() {
 const testDiv = document.createElement('div');
 testDiv.style.cssText = `
@@ -1374,33 +1361,29 @@ testDiv.innerHTML = '🔄 연결 테스트 중...';
 document.body.appendChild(testDiv);
 
 const results = [];
-
-// 각 URL과 엔드포인트 조합 테스트
-for (const baseUrl of API_URLS) {
 const endpoints = ['/health', '/api/admin/health', '/generate-chat-id', '/api/chat/generate-id'];
 
 for (const endpoint of endpoints) {
 try {
 const startTime = Date.now();
-const response = await fetch(`${baseUrl}${endpoint}`, {
+const response = await fetch(`${API_BASE_URL}${endpoint}`, {
 method: 'GET',
 signal: AbortSignal.timeout(3000)
 });
 const endTime = Date.now();
 
 results.push({
-url: `${baseUrl}${endpoint}`,
+url: `${API_BASE_URL}${endpoint}`,
 status: response.status,
 time: endTime - startTime,
 ok: response.ok
 });
 } catch (error) {
 results.push({
-url: `${baseUrl}${endpoint}`,
+url: `${API_BASE_URL}${endpoint}`,
 error: error.message,
 ok: false
 });
-}
 }
 }
 
