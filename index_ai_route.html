@@ -548,7 +548,7 @@ transition-duration: 0.01s !important;
 </head>
 <body>
 <div id="header">
-<h1>🎯 투어비스 고객센터 AI 에이전트2</h1>
+<h1>🎯 투어비스 고객센터 AI 에이전트3</h1>
 </div>
 
 <div id="container">
@@ -562,7 +562,38 @@ transition-duration: 0.01s !important;
 </div>
 
 <script>
-// 🎯 API 엔드포인트 구성 - 수정된 버전
+// 🚨 강제 URL 수정 시스템
+(function() {
+    'use strict';
+    
+    // Fetch API 완전 제어
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        if (typeof url === 'string') {
+            // 모든 HTTP를 HTTPS로
+            url = url.replace(/^http:\/\//, 'https://');
+            // 모든 .io를 .site로
+            url = url.replace(/goorm\.io/g, 'goorm.site');
+            
+            console.log('🔧 수정된 URL:', url);
+        }
+        return originalFetch.call(this, url, options);
+    };
+    
+    // XMLHttpRequest도 동일하게 처리
+    const originalOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...args) {
+        if (typeof url === 'string') {
+            url = url.replace(/^http:\/\//, 'https://');
+            url = url.replace(/goorm\.io/g, 'goorm.site');
+        }
+        return originalOpen.call(this, method, url, ...args);
+    };
+    
+    console.log('🛡️ URL 보호 시스템 활성화');
+})();
+       
+       // 🎯 API 엔드포인트 구성 - 수정된 버전
 // 포트 번호 제거하고 여러 URL 시도하도록 변경
 const API_URLS = [
 "https://tourvis-ai-dxojr.run.goorm.site",     // 기본 HTTPS (포트 제거)
