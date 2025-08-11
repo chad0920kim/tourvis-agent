@@ -79,6 +79,12 @@
 </head>
 <body>
     <div class="container-fluid p-3">
+        <!-- API 연결 상태 표시 -->
+        <div id="connectionStatus" class="alert alert-info d-none mb-3" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            <span id="connectionMessage">API 서버 연결 확인 중...</span>
+        </div>
+        
         <div class="row">
             <!-- 왼쪽 사이드바: 파일 관리 -->
             <div class="col-md-4">
@@ -180,16 +186,82 @@
     <script>
         let currentFile = null;
         let editingFaqId = null;
+        let API_BASE_URL = '';
+        
+        // API 베이스 URL 감지 및 설정
+        function detectApiBaseUrl() {
+            const hostname = window.location.hostname;
+            
+            // GitHub Pages에서 호스팅되는 경우
+            if (hostname.includes('github.io')) {
+                API_BASE_URL = 'https://tourvis-ai-dxojr.run.goorm.site';
+            }
+            // Goorm IDE에서 직접 접근하는 경우
+            else if (hostname.includes('goorm.site') || hostname.includes('goorm.io')) {
+                API_BASE_URL = window.location.origin;
+            }
+            // 로컬 개발환경
+            else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                API_BASE_URL = 'http://localhost:8080';
+            }
+            // 기타 환경
+            else {
+                API_BASE_URL = window.location.origin;
+            }
+            
+            console.log('감지된 API 베이스 URL:', API_BASE_URL);
+            return API_BASE_URL;
+        }
+        
+        // API 연결 상태 확인
+        async function checkApiConnection() {
+            const statusDiv = document.getElementById('connectionStatus');
+            const messageSpan = document.getElementById('connectionMessage');
+            
+            statusDiv.classList.remove('d-none');
+            messageSpan.textContent = 'API 서버 연결 확인 중...';
+            statusDiv.className = 'alert alert-info mb-3';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/health`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    messageSpan.innerHTML = `<i class="fas fa-check-circle me-2"></i>API 서버 연결됨 (${API_BASE_URL})`;
+                    statusDiv.className = 'alert alert-success mb-3';
+                    
+                    // 3초 후 상태 메시지 숨기기
+                    setTimeout(() => {
+                        statusDiv.classList.add('d-none');
+                    }, 3000);
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('API 연결 실패:', error);
+                messageSpan.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>API 서버 연결 실패 (${API_BASE_URL}) - ${error.message}`;
+                statusDiv.className = 'alert alert-warning mb-3';
+            }
+        }
         
         // 페이지 로드 시 파일 목록 불러오기
         document.addEventListener('DOMContentLoaded', function() {
+            detectApiBaseUrl();
+            checkApiConnection();
             loadFileList();
         });
 
         // 파일 목록 불러오기
         async function loadFileList() {
             try {
-                const response = await fetch('/faq-manager/api/files');
+                const response = await fetch(`${API_BASE_URL}/faq-manager/api/files`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
                 
                 const fileListDiv = document.getElementById('fileList');
@@ -223,7 +295,22 @@
                 }
             } catch (error) {
                 console.error('파일 목록 로드 실패:', error);
-                showAlert('파일 목록을 불러오는데 실패했습니다.', 'danger');
+                
+                const fileListDiv = document.getElementById('fileList');
+                fileListDiv.innerHTML = `
+                    <div class="text-center text-danger py-4">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                        <div>파일 목록 로드 실패</div>
+                        <small>${error.message}</small>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadFileList()">
+                                <i class="fas fa-sync me-1"></i>다시 시도
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                showAlert(`파일 목록을 불러오는데 실패했습니다: ${error.message}`, 'danger');
             }
         }
 
@@ -248,7 +335,12 @@
         // FAQ 목록 불러오기
         async function loadFaqList(filename) {
             try {
-                const response = await fetch(`/faq-manager/api/faq/${encodeURIComponent(filename)}`);
+                const response = await fetch(`${API_BASE_URL}/faq-manager/api/faq/${encodeURIComponent(filename)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
                 
                 const faqListDiv = document.getElementById('faqList');
@@ -312,13 +404,17 @@
             }
             
             try {
-                const response = await fetch('/faq-manager/api/files', {
+                const response = await fetch(`${API_BASE_URL}/faq-manager/api/files`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ filename: filename })
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 
                 const data = await response.json();
                 
@@ -342,9 +438,13 @@
             }
             
             try {
-                const response = await fetch(`/faq-manager/api/files/${encodeURIComponent(filename)}`, {
+                const response = await fetch(`${API_BASE_URL}/faq-manager/api/files/${encodeURIComponent(filename)}`, {
                     method: 'DELETE'
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 
                 const data = await response.json();
                 
@@ -394,7 +494,12 @@
         async function editFaq(faqId) {
             try {
                 // 현재 FAQ 목록에서 해당 FAQ 찾기
-                const response = await fetch(`/faq-manager/api/faq/${encodeURIComponent(currentFile)}`);
+                const response = await fetch(`${API_BASE_URL}/faq-manager/api/faq/${encodeURIComponent(currentFile)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
                 
                 if (data.status === 'success') {
@@ -435,11 +540,11 @@
                 
                 if (editingFaqId !== null) {
                     // 수정
-                    url = `/faq-manager/api/faq/${encodeURIComponent(currentFile)}/${editingFaqId}`;
+                    url = `${API_BASE_URL}/faq-manager/api/faq/${encodeURIComponent(currentFile)}/${editingFaqId}`;
                     method = 'PUT';
                 } else {
                     // 추가
-                    url = `/faq-manager/api/faq/${encodeURIComponent(currentFile)}`;
+                    url = `${API_BASE_URL}/faq-manager/api/faq/${encodeURIComponent(currentFile)}`;
                     method = 'POST';
                 }
                 
@@ -453,6 +558,10 @@
                         answer: answer 
                     })
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 
                 const data = await response.json();
                 
@@ -476,9 +585,13 @@
             }
             
             try {
-                const response = await fetch(`/faq-manager/api/faq/${encodeURIComponent(currentFile)}/${faqId}`, {
+                const response = await fetch(`${API_BASE_URL}/faq-manager/api/faq/${encodeURIComponent(currentFile)}/${faqId}`, {
                     method: 'DELETE'
                 });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 
                 const data = await response.json();
                 
